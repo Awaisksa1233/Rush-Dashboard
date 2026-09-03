@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   DateRangePreset, 
   ComparisonType, 
@@ -22,6 +22,7 @@ import { RevenueBreakdown } from './components/charts/RevenueBreakdown';
 import { PackagePerformanceTable } from './components/tables/PackagePerformanceTable';
 import { RetentionAndValue } from './components/tables/CohortRetentionTable';
 import { WashUsageDashboard } from './components/charts/WashUsageDashboard';
+import { BaremetricsDashboard } from './components/charts/BaremetricsDashboard';
 import { DrilldownModal } from './components/modals/DrilldownModal';
 
 export function App() {
@@ -201,6 +202,21 @@ export function App() {
             <PackagePerformanceTable
               rows={analytics.packageTable}
               onPackageClick={(pkgId) => setPackageFilter(pkgId as PackageTier)}
+            />
+          </div>
+        )}
+
+        {/* DOMAIN 6: BAREMETRICS SAAS INTELLIGENCE */}
+        {activeDomain === 'baremetrics' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <BaremetricsDashboard
+              metrics={analytics.executiveMetrics}
+              trendPoints={analytics.revenueTrendSeries}
+              salesBreakdown={analytics.salesBreakdown}
+              churnAnalysis={analytics.churnAnalysis}
+              paymentHealth={analytics.paymentHealth}
+              packages={analytics.packageTable}
+              onOpenDrilldown={(type) => setModalType(type)}
             />
           </div>
         )}

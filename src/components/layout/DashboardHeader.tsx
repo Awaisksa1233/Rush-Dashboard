@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { 
   DateRangePreset, 
   ComparisonType, 
@@ -18,7 +18,7 @@ import {
   Gauge 
 } from 'lucide-react';
 
-export type ActiveDomainTab = 'glance' | 'revenue' | 'sales' | 'memberships' | 'usage';
+export type ActiveDomainTab = 'glance' | 'revenue' | 'sales' | 'memberships' | 'usage' | 'baremetrics';
 
 interface DashboardHeaderProps {
   activeDomain: ActiveDomainTab;
@@ -70,6 +70,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     { id: 'sales', label: 'Sales & Growth', icon: ShoppingBag },
     { id: 'memberships', label: 'Memberships & Churn', icon: UserCheck },
     { id: 'usage', label: 'Wash Usage', icon: Gauge },
+    { id: 'baremetrics', label: 'Baremetrics SaaS', icon: LayoutDashboard },
   ];
 
   return (

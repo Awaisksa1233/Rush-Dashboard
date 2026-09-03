@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
   DollarSign, 
@@ -30,6 +30,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
     { id: 'sales', label: 'Sales & Conversion', icon: ShoppingBag },
     { id: 'memberships', label: 'Memberships & Churn', icon: UserCheck, count: '3,207' },
     { id: 'usage', label: 'Wash Usage & Fleet', icon: Gauge, alert: true },
+    { id: 'baremetrics', label: 'Baremetrics SaaS', icon: Layers, badge: 'New' },
   ];
 
   return (
