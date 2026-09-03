@@ -23,6 +23,7 @@ import { PackagePerformanceTable } from './components/tables/PackagePerformanceT
 import { RetentionAndValue } from './components/tables/CohortRetentionTable';
 import { WashUsageDashboard } from './components/charts/WashUsageDashboard';
 import { BaremetricsDashboard } from './components/charts/BaremetricsDashboard';
+import { SalesTeamPerformance } from './components/sales/SalesTeamPerformance';
 import { DrilldownModal } from './components/modals/DrilldownModal';
 
 export function App() {
@@ -151,6 +152,7 @@ export function App() {
                 <MembershipSales
                   data={analytics.salesBreakdown}
                   onPackageClick={(pkgId) => setPackageFilter(pkgId as PackageTier)}
+                  onViewTeam={() => setActiveDomain('team')}
                 />
               </div>
               <div className="lg:col-span-6">
@@ -163,6 +165,24 @@ export function App() {
             <PackagePerformanceTable
               rows={analytics.packageTable}
               onPackageClick={(pkgId) => setPackageFilter(pkgId as PackageTier)}
+            />
+
+            {/* SECTION: SALES TEAM PERFORMANCE */}
+            <SalesTeamPerformance
+              data={analytics.salesTeam}
+              onPackageClick={(pkgId) => setPackageFilter(pkgId as PackageTier)}
+              onLocationSelect={(locId) => setLocation(locId as LocationId)}
+            />
+          </div>
+        )}
+
+        {/* DOMAIN: SALES TEAM DEDICATED VIEW */}
+        {activeDomain === 'team' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <SalesTeamPerformance
+              data={analytics.salesTeam}
+              onPackageClick={(pkgId) => setPackageFilter(pkgId as PackageTier)}
+              onLocationSelect={(locId) => setLocation(locId as LocationId)}
             />
           </div>
         )}

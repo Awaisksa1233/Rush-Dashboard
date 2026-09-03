@@ -1,4 +1,4 @@
-﻿export type DateRangePreset = 'today' | 'yesterday' | 'last7' | 'last30' | 'thisMonth' | 'lastMonth' | 'custom';
+export type DateRangePreset = 'today' | 'yesterday' | 'last7' | 'last30' | 'thisMonth' | 'lastMonth' | 'custom';
 export type ComparisonType = 'previous_period' | 'previous_month' | 'previous_year';
 export type Granularity = 'daily' | 'weekly' | 'monthly';
 
@@ -211,4 +211,79 @@ export type ModalDrilldownType =
   | 'voluntary_churn'
   | 'new_members'
   | 'package_detail'
-  | 'revenue_breakdown';
+  | 'revenue_breakdown'
+  | 'sales_rep_activity';
+
+export interface RepDealRecord {
+  id: string;
+  customerName: string;
+  vehiclePlate: string;
+  packageTier: PackageTier;
+  packageName: string;
+  amount: number;
+  saleType: 'New' | 'Upgrade' | 'Reactivation';
+  timestamp: string;
+  commission: number;
+  lane: string;
+}
+
+export interface SalesRepPerformance {
+  id: string;
+  name: string;
+  arabicName: string;
+  role: string;
+  branchId: LocationId;
+  branchName: string;
+  shift: 'morning' | 'evening' | 'flexible';
+  avatarInitials: string;
+  avatarBg: string;
+  // Volume
+  totalSales: number;
+  newSales: number;
+  upgrades: number;
+  reactivations: number;
+  // Revenue & Quota
+  revenueGenerated: number;
+  targetRevenue: number;
+  quotaAttainmentPct: number;
+  // Efficiency & Conversions
+  pitchesCount: number;
+  conversionRatePct: number;
+  avgTicketPrice: number;
+  commissionEarned: number;
+  // Package breakdown counts
+  tierSales: {
+    fresh: number;
+    shiny: number;
+    nano: number;
+    interior: number;
+  };
+  rank: number;
+  recentDeals: RepDealRecord[];
+}
+
+export interface BranchTeamComparison {
+  branchId: LocationId;
+  branchName: string;
+  city: string;
+  repCount: number;
+  totalSales: number;
+  revenue: number;
+  quotaPct: number;
+  avgConversionRate: number;
+}
+
+export interface SalesTeamAnalytics {
+  totalReps: number;
+  activeLanes: number;
+  totalRepSales: number;
+  totalRepRevenue: number;
+  teamQuotaTarget: number;
+  teamQuotaAttainmentPct: number;
+  avgLaneConversionRate: number;
+  totalCommissions: number;
+  topPerformer: SalesRepPerformance;
+  reps: SalesRepPerformance[];
+  branchBreakdown: BranchTeamComparison[];
+}
+

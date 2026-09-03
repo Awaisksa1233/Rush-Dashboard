@@ -1,10 +1,10 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-[#f8fafc] text-slate-900 antialiased;
+    @apply bg-[#f2f2f2] text-[#000000] antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
@@ -18,25 +18,24 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #d4d4d4;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #a3a3a3;
 }
 
-/* Subtle card styling */
-.glass-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+/* RUSH Brand Racing Checkered Flag Gradient Pattern */
+.rush-racing-pattern {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(201, 30, 47, 0.04) 0px,
+    rgba(201, 30, 47, 0.04) 20px,
+    transparent 20px,
+    transparent 40px
+  );
 }
 
-.glass-card-hover {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.glass-card-hover:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+.rush-brand-glow {
+  box-shadow: 0 0 24px -4px rgba(201, 30, 47, 0.15);
 }

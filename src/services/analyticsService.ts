@@ -1,4 +1,4 @@
-﻿import { 
+import { 
   DateRangePreset, 
   ComparisonType, 
   LocationId, 
@@ -14,7 +14,11 @@
   PackageEconomicsRow, 
   CohortRetentionRow, 
   ManagementValueMetrics, 
-  AttentionAlert 
+  AttentionAlert,
+  SalesRepPerformance,
+  SalesTeamAnalytics,
+  BranchTeamComparison,
+  RepDealRecord
 } from '../types/dashboard';
 import { PACKAGES } from '../data/packages';
 
@@ -76,6 +80,8 @@ export interface WashUsageAnalytics {
     hour: string;
     carsPerHour: number;
     capacityPct: number;
+    interiorCarsPerHour: number;
+    interiorPct: number;
     isPeak: boolean;
   }[];
   // Vehicle profile distribution
@@ -220,13 +226,13 @@ export function calculateDashboardAnalytics(filters: DashboardFilterState) {
         color: '#8b5cf6'
       }
     ],
-    // Peak tunnel throughput
+    // Peak tunnel throughput with interior clean volume
     peakHours: [
-      { hour: '09:00 - 12:00', carsPerHour: 34, capacityPct: 42, isPeak: false },
-      { hour: '12:00 - 15:00', carsPerHour: 48, capacityPct: 60, isPeak: false },
-      { hour: '15:00 - 18:00', carsPerHour: 68, capacityPct: 85, isPeak: true },
-      { hour: '18:00 - 21:00', carsPerHour: 76, capacityPct: 95, isPeak: true },
-      { hour: '21:00 - 24:00', carsPerHour: 52, capacityPct: 65, isPeak: false }
+      { hour: '09:00 - 12:00', carsPerHour: 34, capacityPct: 42, interiorCarsPerHour: 10, interiorPct: 29, isPeak: false },
+      { hour: '12:00 - 15:00', carsPerHour: 48, capacityPct: 60, interiorCarsPerHour: 14, interiorPct: 29, isPeak: false },
+      { hour: '15:00 - 18:00', carsPerHour: 68, capacityPct: 85, interiorCarsPerHour: 20, interiorPct: 29, isPeak: true },
+      { hour: '18:00 - 21:00', carsPerHour: 76, capacityPct: 95, interiorCarsPerHour: 22, interiorPct: 29, isPeak: true },
+      { hour: '21:00 - 24:00', carsPerHour: 52, capacityPct: 65, interiorCarsPerHour: 15, interiorPct: 29, isPeak: false }
     ],
     // Vehicle types in Saudi Market
     vehicleTypes: [
@@ -510,6 +516,341 @@ export function calculateDashboardAnalytics(filters: DashboardFilterState) {
     });
   }
 
+  // 8. SALES TEAM PERFORMANCE ANALYTICS
+  const periodScale = Math.max(days / 30, 0.05);
+
+  const rawRepsData: Array<Omit<SalesRepPerformance, 'rank'>> = [
+    {
+      id: 'REP-101',
+      name: 'Tariq Al-Mansoor',
+      arabicName: 'طارق المنصور',
+      role: 'Lead Sales Advisor',
+      branchId: 'loc_riyadh_north',
+      branchName: 'Riyadh — Northern Ring Road',
+      shift: 'evening',
+      avatarInitials: 'TM',
+      avatarBg: 'bg-emerald-600',
+      totalSales: Math.max(1, Math.round(58 * periodScale)),
+      newSales: Math.max(1, Math.round(41 * periodScale)),
+      upgrades: Math.round(11 * periodScale),
+      reactivations: Math.round(6 * periodScale),
+      revenueGenerated: Math.max(289, Math.round(13680 * periodScale)),
+      targetRevenue: Math.max(250, Math.round(12000 * periodScale)),
+      quotaAttainmentPct: 114.0,
+      pitchesCount: Math.max(3, Math.round(168 * periodScale)),
+      conversionRatePct: 34.5,
+      avgTicketPrice: 236,
+      commissionEarned: Math.max(29, Math.round(1368 * periodScale)),
+      tierSales: {
+        fresh: Math.round(12 * periodScale),
+        shiny: Math.round(28 * periodScale),
+        nano: Math.round(14 * periodScale),
+        interior: Math.round(4 * periodScale)
+      },
+      recentDeals: [
+        { id: 'DEAL-901', customerName: 'Fahad Al-Sudairy', vehiclePlate: 'KSA 4190', packageTier: 'nano', packageName: 'Nano Ceramic', amount: 289, saleType: 'New', timestamp: 'Today, 18:24', commission: 28.9, lane: 'Lane 1 (Express)' },
+        { id: 'DEAL-902', customerName: 'Mohammed Al-Dosari', vehiclePlate: 'KSA 9921', packageTier: 'shiny', packageName: 'Shiny Wash', amount: 199, saleType: 'Upgrade', timestamp: 'Today, 16:15', commission: 19.9, lane: 'Lane 2 (VIP)' },
+        { id: 'DEAL-903', customerName: 'Nasser Al-Ghamdi', vehiclePlate: 'KSA 7711', packageTier: 'nano', packageName: 'Nano Ceramic', amount: 289, saleType: 'New', timestamp: 'Yesterday, 20:10', commission: 28.9, lane: 'Lane 1 (Express)' },
+        { id: 'DEAL-904', customerName: 'Rakan Al-Harthy', vehiclePlate: 'KSA 3302', packageTier: 'fresh', packageName: 'Fresh Wash', amount: 149, saleType: 'Reactivation', timestamp: 'Sep 01, 17:45', commission: 14.9, lane: 'Lane 3' }
+      ]
+    },
+    {
+      id: 'REP-102',
+      name: 'Yousef Al-Harbi',
+      arabicName: 'يوسف الحربي',
+      role: 'Senior Lane Advisor',
+      branchId: 'loc_riyadh_olaya',
+      branchName: 'Riyadh — Olaya Branch',
+      shift: 'morning',
+      avatarInitials: 'YH',
+      avatarBg: 'bg-blue-600',
+      totalSales: Math.max(1, Math.round(49 * periodScale)),
+      newSales: Math.max(1, Math.round(34 * periodScale)),
+      upgrades: Math.round(10 * periodScale),
+      reactivations: Math.round(5 * periodScale),
+      revenueGenerated: Math.max(199, Math.round(11240 * periodScale)),
+      targetRevenue: Math.max(200, Math.round(10500 * periodScale)),
+      quotaAttainmentPct: 107.0,
+      pitchesCount: Math.max(3, Math.round(152 * periodScale)),
+      conversionRatePct: 32.2,
+      avgTicketPrice: 229,
+      commissionEarned: Math.max(20, Math.round(1124 * periodScale)),
+      tierSales: {
+        fresh: Math.round(11 * periodScale),
+        shiny: Math.round(23 * periodScale),
+        nano: Math.round(11 * periodScale),
+        interior: Math.round(4 * periodScale)
+      },
+      recentDeals: [
+        { id: 'DEAL-905', customerName: 'Khalid Al-Harbi', vehiclePlate: 'KSA 3314', packageTier: 'shiny', packageName: 'Shiny Wash', amount: 199, saleType: 'New', timestamp: 'Today, 11:30', commission: 19.9, lane: 'Lane 1' },
+        { id: 'DEAL-906', customerName: 'Saad Al-Qarni', vehiclePlate: 'KSA 6192', packageTier: 'nano', packageName: 'Nano Ceramic', amount: 289, saleType: 'Upgrade', timestamp: 'Yesterday, 10:15', commission: 28.9, lane: 'Lane 2' }
+      ]
+    },
+    {
+      id: 'REP-103',
+      name: 'Reem Al-Ghamdi',
+      arabicName: 'ريم الغامدي',
+      role: 'Drive-in Sales Specialist',
+      branchId: 'loc_jeddah_corniche',
+      branchName: 'Jeddah — North Corniche',
+      shift: 'evening',
+      avatarInitials: 'RG',
+      avatarBg: 'bg-purple-600',
+      totalSales: Math.max(1, Math.round(45 * periodScale)),
+      newSales: Math.max(1, Math.round(31 * periodScale)),
+      upgrades: Math.round(9 * periodScale),
+      reactivations: Math.round(5 * periodScale),
+      revenueGenerated: Math.max(289, Math.round(10850 * periodScale)),
+      targetRevenue: Math.max(200, Math.round(10000 * periodScale)),
+      quotaAttainmentPct: 108.5,
+      pitchesCount: Math.max(3, Math.round(140 * periodScale)),
+      conversionRatePct: 32.1,
+      avgTicketPrice: 241,
+      commissionEarned: Math.max(28, Math.round(1085 * periodScale)),
+      tierSales: {
+        fresh: Math.round(8 * periodScale),
+        shiny: Math.round(21 * periodScale),
+        nano: Math.round(12 * periodScale),
+        interior: Math.round(4 * periodScale)
+      },
+      recentDeals: [
+        { id: 'DEAL-907', customerName: 'Reem Al-Shehri', vehiclePlate: 'KSA 7719', packageTier: 'nano', packageName: 'Nano Ceramic', amount: 289, saleType: 'New', timestamp: 'Today, 19:40', commission: 28.9, lane: 'Corniche Lane 1' },
+        { id: 'DEAL-908', customerName: 'Walid Al-Ghamdi', vehiclePlate: 'KSA 2201', packageTier: 'shiny', packageName: 'Shiny Wash', amount: 199, saleType: 'New', timestamp: 'Yesterday, 21:05', commission: 19.9, lane: 'Corniche Lane 2' }
+      ]
+    },
+    {
+      id: 'REP-104',
+      name: 'Sultan Al-Otaibi',
+      arabicName: 'سلطان العتيبي',
+      role: 'Lane Sales Advisor',
+      branchId: 'loc_riyadh_north',
+      branchName: 'Riyadh — Northern Ring Road',
+      shift: 'morning',
+      avatarInitials: 'SO',
+      avatarBg: 'bg-teal-600',
+      totalSales: Math.max(1, Math.round(42 * periodScale)),
+      newSales: Math.max(1, Math.round(29 * periodScale)),
+      upgrades: Math.round(8 * periodScale),
+      reactivations: Math.round(5 * periodScale),
+      revenueGenerated: Math.max(199, Math.round(9650 * periodScale)),
+      targetRevenue: Math.max(200, Math.round(9500 * periodScale)),
+      quotaAttainmentPct: 101.6,
+      pitchesCount: Math.max(3, Math.round(145 * periodScale)),
+      conversionRatePct: 29.0,
+      avgTicketPrice: 230,
+      commissionEarned: Math.max(20, Math.round(965 * periodScale)),
+      tierSales: {
+        fresh: Math.round(10 * periodScale),
+        shiny: Math.round(19 * periodScale),
+        nano: Math.round(10 * periodScale),
+        interior: Math.round(3 * periodScale)
+      },
+      recentDeals: [
+        { id: 'DEAL-909', customerName: 'Abdullah Al-Subaie', vehiclePlate: 'KSA 8000', packageTier: 'nano', packageName: 'Nano Ceramic', amount: 289, saleType: 'Upgrade', timestamp: 'Today, 09:20', commission: 28.9, lane: 'Lane 1' }
+      ]
+    },
+    {
+      id: 'REP-105',
+      name: 'Faisal Al-Dossari',
+      arabicName: 'فيصل الدوسري',
+      role: 'Sales Advisor',
+      branchId: 'loc_dammam_corniche',
+      branchName: 'Dammam — Khobar Coastal Road',
+      shift: 'flexible',
+      avatarInitials: 'FD',
+      avatarBg: 'bg-amber-600',
+      totalSales: Math.max(1, Math.round(38 * periodScale)),
+      newSales: Math.max(1, Math.round(26 * periodScale)),
+      upgrades: Math.round(7 * periodScale),
+      reactivations: Math.round(5 * periodScale),
+      revenueGenerated: Math.max(199, Math.round(8540 * periodScale)),
+      targetRevenue: Math.max(200, Math.round(9000 * periodScale)),
+      quotaAttainmentPct: 94.9,
+      pitchesCount: Math.max(3, Math.round(138 * periodScale)),
+      conversionRatePct: 27.5,
+      avgTicketPrice: 225,
+      commissionEarned: Math.max(20, Math.round(854 * periodScale)),
+      tierSales: {
+        fresh: Math.round(9 * periodScale),
+        shiny: Math.round(18 * periodScale),
+        nano: Math.round(8 * periodScale),
+        interior: Math.round(3 * periodScale)
+      },
+      recentDeals: [
+        { id: 'DEAL-910', customerName: 'Mansour Al-Khobar', vehiclePlate: 'KSA 5590', packageTier: 'shiny', packageName: 'Shiny Wash', amount: 199, saleType: 'New', timestamp: 'Today, 17:10', commission: 19.9, lane: 'Khobar Lane 1' }
+      ]
+    },
+    {
+      id: 'REP-106',
+      name: 'Hani Al-Shehri',
+      arabicName: 'هاني الشهري',
+      role: 'Lane Greeter & Advisor',
+      branchId: 'loc_riyadh_olaya',
+      branchName: 'Riyadh — Olaya Branch',
+      shift: 'evening',
+      avatarInitials: 'HS',
+      avatarBg: 'bg-rose-600',
+      totalSales: Math.max(1, Math.round(35 * periodScale)),
+      newSales: Math.max(1, Math.round(23 * periodScale)),
+      upgrades: Math.round(8 * periodScale),
+      reactivations: Math.round(4 * periodScale),
+      revenueGenerated: Math.max(149, Math.round(7820 * periodScale)),
+      targetRevenue: Math.max(200, Math.round(8500 * periodScale)),
+      quotaAttainmentPct: 92.0,
+      pitchesCount: Math.max(3, Math.round(130 * periodScale)),
+      conversionRatePct: 26.9,
+      avgTicketPrice: 223,
+      commissionEarned: Math.max(15, Math.round(782 * periodScale)),
+      tierSales: {
+        fresh: Math.round(9 * periodScale),
+        shiny: Math.round(16 * periodScale),
+        nano: Math.round(7 * periodScale),
+        interior: Math.round(3 * periodScale)
+      },
+      recentDeals: [
+        { id: 'DEAL-911', customerName: 'Ziyad Al-Husseini', vehiclePlate: 'KSA 9982', packageTier: 'nano', packageName: 'Nano Ceramic', amount: 289, saleType: 'Reactivation', timestamp: 'Yesterday, 18:40', commission: 28.9, lane: 'Olaya Lane 2' }
+      ]
+    },
+    {
+      id: 'REP-107',
+      name: 'Majid Al-Zahrani',
+      arabicName: 'ماجد الزهراني',
+      role: 'Sales Specialist',
+      branchId: 'loc_jeddah_corniche',
+      branchName: 'Jeddah — North Corniche',
+      shift: 'morning',
+      avatarInitials: 'MZ',
+      avatarBg: 'bg-indigo-600',
+      totalSales: Math.max(1, Math.round(33 * periodScale)),
+      newSales: Math.max(1, Math.round(22 * periodScale)),
+      upgrades: Math.round(6 * periodScale),
+      reactivations: Math.round(5 * periodScale),
+      revenueGenerated: Math.max(149, Math.round(7450 * periodScale)),
+      targetRevenue: Math.max(200, Math.round(8000 * periodScale)),
+      quotaAttainmentPct: 93.1,
+      pitchesCount: Math.max(3, Math.round(124 * periodScale)),
+      conversionRatePct: 26.6,
+      avgTicketPrice: 226,
+      commissionEarned: Math.max(15, Math.round(745 * periodScale)),
+      tierSales: {
+        fresh: Math.round(8 * periodScale),
+        shiny: Math.round(15 * periodScale),
+        nano: Math.round(7 * periodScale),
+        interior: Math.round(3 * periodScale)
+      },
+      recentDeals: [
+        { id: 'DEAL-912', customerName: 'Nora Al-Zahrani', vehiclePlate: 'KSA 5143', packageTier: 'shiny', packageName: 'Shiny Wash', amount: 199, saleType: 'New', timestamp: 'Today, 10:50', commission: 19.9, lane: 'Corniche Lane 1' }
+      ]
+    },
+    {
+      id: 'REP-108',
+      name: 'Saud Al-Khaldi',
+      arabicName: 'سعود الخالدي',
+      role: 'Junior Lane Advisor',
+      branchId: 'loc_dammam_corniche',
+      branchName: 'Dammam — Khobar Coastal Road',
+      shift: 'morning',
+      avatarInitials: 'SK',
+      avatarBg: 'bg-cyan-600',
+      totalSales: Math.max(1, Math.round(26 * periodScale)),
+      newSales: Math.max(1, Math.round(18 * periodScale)),
+      upgrades: Math.round(5 * periodScale),
+      reactivations: Math.round(3 * periodScale),
+      revenueGenerated: Math.max(149, Math.round(5620 * periodScale)),
+      targetRevenue: Math.max(200, Math.round(6500 * periodScale)),
+      quotaAttainmentPct: 86.5,
+      pitchesCount: Math.max(3, Math.round(112 * periodScale)),
+      conversionRatePct: 23.2,
+      avgTicketPrice: 216,
+      commissionEarned: Math.max(15, Math.round(562 * periodScale)),
+      tierSales: {
+        fresh: Math.round(8 * periodScale),
+        shiny: Math.round(12 * periodScale),
+        nano: Math.round(4 * periodScale),
+        interior: Math.round(2 * periodScale)
+      },
+      recentDeals: [
+        { id: 'DEAL-913', customerName: 'Bader Al-Mutairi', vehiclePlate: 'KSA 6620', packageTier: 'fresh', packageName: 'Fresh Wash', amount: 149, saleType: 'New', timestamp: 'Sep 02, 11:15', commission: 14.9, lane: 'Khobar Lane 2' }
+      ]
+    }
+  ];
+
+  // Calculate actual quota attainment based on period numbers
+  const allRepsWithRank: SalesRepPerformance[] = rawRepsData
+    .map((r) => {
+      const quotaPct = r.targetRevenue > 0 ? parseFloat(((r.revenueGenerated / r.targetRevenue) * 100).toFixed(1)) : 100;
+      return {
+        ...r,
+        quotaAttainmentPct: quotaPct,
+        rank: 1
+      };
+    })
+    .sort((a, b) => b.revenueGenerated - a.revenueGenerated)
+    .map((r, idx) => ({ ...r, rank: idx + 1 }));
+
+  // Filter reps if a specific location is selected
+  const displayReps = filters.location === 'all'
+    ? allRepsWithRank
+    : allRepsWithRank.filter((r) => r.branchId === filters.location);
+
+  // Branch breakdown comparison
+  const branchIds: { id: LocationId; name: string; city: string }[] = [
+    { id: 'loc_riyadh_north', name: 'Riyadh — Northern Ring Road', city: 'Riyadh' },
+    { id: 'loc_riyadh_olaya', name: 'Riyadh — Olaya Branch', city: 'Riyadh' },
+    { id: 'loc_jeddah_corniche', name: 'Jeddah — North Corniche', city: 'Jeddah' },
+    { id: 'loc_dammam_corniche', name: 'Dammam — Khobar Coastal Road', city: 'Eastern Province' }
+  ];
+
+  const branchBreakdown: BranchTeamComparison[] = branchIds.map((b) => {
+    const branchReps = allRepsWithRank.filter((r) => r.branchId === b.id);
+    const repCount = branchReps.length;
+    const bSales = branchReps.reduce((sum, r) => sum + r.totalSales, 0);
+    const bRev = branchReps.reduce((sum, r) => sum + r.revenueGenerated, 0);
+    const bTarget = branchReps.reduce((sum, r) => sum + r.targetRevenue, 0);
+    const quotaPct = bTarget > 0 ? parseFloat(((bRev / bTarget) * 100).toFixed(1)) : 100;
+    const avgConv = repCount > 0
+      ? parseFloat((branchReps.reduce((sum, r) => sum + r.conversionRatePct, 0) / repCount).toFixed(1))
+      : 28.0;
+
+    return {
+      branchId: b.id,
+      branchName: b.name,
+      city: b.city,
+      repCount,
+      totalSales: bSales,
+      revenue: bRev,
+      quotaPct,
+      avgConversionRate: avgConv
+    };
+  });
+
+  const totalRepSales = displayReps.reduce((sum, r) => sum + r.totalSales, 0);
+  const totalRepRevenue = displayReps.reduce((sum, r) => sum + r.revenueGenerated, 0);
+  const teamQuotaTarget = displayReps.reduce((sum, r) => sum + r.targetRevenue, 0);
+  const teamQuotaAttainmentPct = teamQuotaTarget > 0 
+    ? parseFloat(((totalRepRevenue / teamQuotaTarget) * 100).toFixed(1))
+    : 100;
+  const avgLaneConversionRate = displayReps.length > 0
+    ? parseFloat((displayReps.reduce((sum, r) => sum + r.conversionRatePct, 0) / displayReps.length).toFixed(1))
+    : 29.5;
+  const totalCommissions = displayReps.reduce((sum, r) => sum + r.commissionEarned, 0);
+
+  const topPerformer = displayReps.length > 0 ? displayReps[0] : allRepsWithRank[0];
+
+  const salesTeam: SalesTeamAnalytics = {
+    totalReps: displayReps.length,
+    activeLanes: Math.min(displayReps.length * 2, 8),
+    totalRepSales,
+    totalRepRevenue,
+    teamQuotaTarget,
+    teamQuotaAttainmentPct,
+    avgLaneConversionRate,
+    totalCommissions,
+    topPerformer,
+    reps: displayReps,
+    branchBreakdown
+  };
+
   return {
     executiveMetrics,
     trendPoints,
@@ -522,6 +863,8 @@ export function calculateDashboardAnalytics(filters: DashboardFilterState) {
     cohortRetention,
     managementValues,
     washUsage,
+    salesTeam,
     alerts
   };
 }
+

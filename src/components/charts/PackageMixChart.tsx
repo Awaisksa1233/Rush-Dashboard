@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { SalesBreakdown } from '../../types/dashboard';
 import { formatSAR } from '../../services/analyticsService';
 import { Sparkles, ArrowUpRight, ShoppingBag } from 'lucide-react';
@@ -7,9 +7,10 @@ import { InfoTooltip } from '../common/Tooltip';
 interface MembershipSalesProps {
   data: SalesBreakdown;
   onPackageClick?: (pkgId: string) => void;
+  onViewTeam?: () => void;
 }
 
-export const MembershipSales: React.FC<MembershipSalesProps> = ({ data, onPackageClick }) => {
+export const MembershipSales: React.FC<MembershipSalesProps> = ({ data, onPackageClick, onViewTeam }) => {
   const { totalSales, revenueAdded, averageSellingPrice, newCount, reactivatedCount, upgradeCount, packageDistribution } = data;
 
   return (
@@ -99,9 +100,18 @@ export const MembershipSales: React.FC<MembershipSalesProps> = ({ data, onPackag
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex justify-between">
+      <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
         <span>Channel: 68% On-site / 32% App</span>
-        <span>Upgrade conversion: 14.2%</span>
+        {onViewTeam ? (
+          <button
+            onClick={onViewTeam}
+            className="text-[#c91e2f] hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+          >
+            <span>Sales Team Performance &rarr;</span>
+          </button>
+        ) : (
+          <span>Upgrade conversion: 14.2%</span>
+        )}
       </div>
     </div>
   );
