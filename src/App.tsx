@@ -211,7 +211,7 @@ export function App() {
           <div className="space-y-6 animate-in fade-in duration-150">
             <BaremetricsDashboard
               metrics={analytics.executiveMetrics}
-              trendPoints={analytics.revenueTrendSeries}
+              trendPoints={analytics.trendPoints}
               salesBreakdown={analytics.salesBreakdown}
               churnAnalysis={analytics.churnAnalysis}
               paymentHealth={analytics.paymentHealth}

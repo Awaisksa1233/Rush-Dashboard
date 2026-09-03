@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { 
   ExecutiveMetrics, 
   RevenueSeriesPoint, 
@@ -123,8 +123,8 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
 
   // 1. BAREMETRICS QUICK RATIO FORMULA
   // Quick Ratio = (New MRR + Reactivation MRR) / (Churn MRR + Contraction MRR)
-  const newMrr = salesBreakdown.revenueAdded; // e.g. SAR 55,400
-  const churnMrr = churnAnalysis.mrrLost;    // e.g. SAR 17,200
+  const newMrr = mrr.newMrr + mrr.reactivationMrr; // e.g. SAR 56,600
+  const churnMrr = mrr.churnedMrr + mrr.failedPaymentMrr; // e.g. SAR 17,200
   const quickRatio = Number((newMrr / (churnMrr || 1)).toFixed(2)); // e.g. 3.22
 
   // 2. NET REVENUE CHURN (Baremetrics Gold Standard)
@@ -269,7 +269,7 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
         {/* 7. MRR GROWTH VELOCITY */}
         <BaremetricsMetricTile
           label="Net MRR Added"
-          value={`+${formatSAR(mrr.netChange)}`}
+          value={`+${formatSAR(mrr.netMovement)}`}
           changePct={15.3}
           sparklineData={[28, 34, 42, 48, 54]}
           sparklineColor="#10b981"
