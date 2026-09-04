@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { InfoTooltip } from '../common/Tooltip';
 import { Sparkline } from '../kpis/MetricCard';
+import { RevenueWashTrendsChart } from '../charts/RevenueWashTrendsChart';
 
 interface FlexWashGlanceProps {
   metrics: ExecutiveMetrics;
@@ -491,137 +492,9 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* ROW 3: REVENUE & WASH TRENDS DUAL-WAVE AREA CHART                         */}
+      {/* ROW 3: REVENUE & WASH TRENDS DUAL-WAVE AREA CHART (INTERACTIVE)           */}
       {/* ========================================================================= */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-full text-center">
-              <h3 className="text-xl font-bold font-display text-slate-900">
-                Revenue & Wash Trends
-              </h3>
-            </div>
-            <button 
-              onClick={onGoToAnalytics} 
-              title="Expand to Deep Analytics"
-              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100"
-            >
-              <Maximize2 className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* FlexWash Range Slider Header Indicator */}
-          <div className="px-6 mb-3">
-            <div className="relative flex items-center">
-              <div className="w-full h-1.5 bg-slate-200 rounded-full">
-                <div className="h-full bg-slate-400/60 rounded-full" style={{ width: '100%' }}></div>
-              </div>
-              <div className="absolute left-0 w-3 h-5 bg-slate-400 rounded-sm shadow-xs cursor-pointer"></div>
-              <div className="absolute right-0 w-3 h-5 bg-slate-400 rounded-sm shadow-xs cursor-pointer"></div>
-            </div>
-          </div>
-
-          {/* The SVG Area Chart */}
-          <div className="relative w-full h-64 overflow-hidden select-none">
-            <svg viewBox="0 0 700 240" className="w-full h-full overflow-visible">
-              <defs>
-                <linearGradient id="flexRevenueGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#818cf8" stopOpacity="0.45" />
-                  <stop offset="100%" stopColor="#818cf8" stopOpacity="0.05" />
-                </linearGradient>
-                <linearGradient id="flexWashGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.55" />
-                  <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.1" />
-                </linearGradient>
-              </defs>
-
-              {[0, 60, 120, 180].map((y, idx) => (
-                <g key={idx}>
-                  <line x1="40" y1={y + 10} x2="680" y2={y + 10} stroke="#f1f5f9" strokeWidth="1" />
-                  <text x="35" y={y + 14} textAnchor="end" className="text-[10px] fill-slate-400 font-mono">
-                    SAR {(8000 - idx * 2000).toLocaleString()}
-                  </text>
-                </g>
-              ))}
-
-              <path
-                d="M 60,160 Q 180,170 280,140 T 450,150 T 600,165 T 660,170 L 660,200 L 60,200 Z"
-                fill="url(#flexWashGrad)"
-              />
-
-              <path
-                d="M 60,140 Q 180,130 280,85 T 450,110 T 600,150 T 660,145 L 660,200 L 60,200 Z"
-                fill="url(#flexRevenueGrad)"
-              />
-
-              <path
-                d="M 60,140 Q 180,130 280,85 T 450,110 T 600,150 T 660,145"
-                fill="none"
-                stroke="#7c3aed"
-                strokeWidth="2.5"
-              />
-              {[
-                { cx: 60, cy: 140 },
-                { cx: 175, cy: 132 },
-                { cx: 280, cy: 85 },
-                { cx: 375, cy: 98 },
-                { cx: 450, cy: 110 },
-                { cx: 535, cy: 142 },
-                { cx: 600, cy: 150 },
-                { cx: 660, cy: 145 },
-              ].map((pt, i) => (
-                <circle key={i} cx={pt.cx} cy={pt.cy} r="4" fill="#7c3aed" stroke="#ffffff" strokeWidth="2" />
-              ))}
-
-              <path
-                d="M 60,160 Q 180,170 280,140 T 450,150 T 600,165 T 660,170"
-                fill="none"
-                stroke="#0d9488"
-                strokeWidth="2.5"
-              />
-              {[
-                { cx: 60, cy: 160 },
-                { cx: 175, cy: 168 },
-                { cx: 280, cy: 140 },
-                { cx: 375, cy: 145 },
-                { cx: 450, cy: 150 },
-                { cx: 535, cy: 158 },
-                { cx: 600, cy: 165 },
-                { cx: 660, cy: 170 },
-              ].map((pt, i) => (
-                <circle key={i} cx={pt.cx} cy={pt.cy} r="4" fill="#0d9488" stroke="#ffffff" strokeWidth="2" />
-              ))}
-
-              <text x="60" y="222" textAnchor="middle" className="text-[11px] fill-slate-400 font-medium">May 16</text>
-              <text x="280" y="222" textAnchor="middle" className="text-[11px] fill-slate-600 font-bold">May 18, 2026</text>
-              <text x="500" y="222" textAnchor="middle" className="text-[11px] fill-slate-400 font-medium">May 20, 2026</text>
-              <text x="660" y="222" textAnchor="middle" className="text-[11px] fill-slate-400 font-medium">May 22</text>
-            </svg>
-          </div>
-
-          <div className="flex items-center justify-center gap-6 mt-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-purple-600"></span>
-              <span className="font-semibold text-slate-700">Daily Revenue (SAR)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-teal-600"></span>
-              <span className="font-semibold text-slate-700">Wash Volume (Events)</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>Peak Day: <strong>May 18 (SAR 6,850 • 182 Washes)</strong></span>
-          <button
-            onClick={onGoToAnalytics}
-            className="text-emerald-700 font-bold hover:underline flex items-center gap-1 text-[11px]"
-          >
-            <span>Explore Multi-Granularity & Package Mix in Analytics</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
+      <RevenueWashTrendsChart onGoToAnalytics={onGoToAnalytics} />
     </div>
   );
 };
