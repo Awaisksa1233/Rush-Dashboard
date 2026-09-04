@@ -151,7 +151,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
         </div>
 
         {/* 4 EXECUTIVE TEAM HIGHLIGHT CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-5">
           {/* Card 1: Total Rep Sales */}
           <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80">
             <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
@@ -575,7 +575,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
           </div>
         ) : (
           /* CARD GRID VIEW */
-          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredReps.map((rep) => {
               const attainmentStyle = getAttainmentColor(rep.quotaAttainmentPct);
 

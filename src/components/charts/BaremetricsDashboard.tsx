@@ -152,7 +152,7 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
   ];
 
   return (
-    <div className="space-y-6 font-sans select-none">
+    <div className="space-y-6 lg:space-y-8 font-sans select-none">
       
       {/* BAREMETRICS HEADER BANNER */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -196,7 +196,7 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
       </div>
 
       {/* 8 BAREMETRICS CORE METRIC TILES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
         
         {/* 1. MRR */}
         <BaremetricsMetricTile
@@ -461,7 +461,7 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {dunningPhases.map((phase, i) => (
             <div key={i} className="p-4.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between">
               <div>

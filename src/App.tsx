@@ -95,7 +95,7 @@ export function App() {
       />
 
       {/* Main Dashboard Canvas */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-5">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
         {/* SECTION 11 — NEEDS ATTENTION / RULE-BASED ALERTS */}
         <NeedsAttention 
           alerts={analytics.alerts} 
@@ -119,7 +119,7 @@ export function App() {
         {/* DOMAIN 2: REVENUE & MRR ANALYTICS */}
         {activeDomain === 'revenue' && (
           <div className="space-y-6 animate-in fade-in duration-150">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-7">
                 <RevenueTrendChart
                   data={analytics.trendPoints}
@@ -147,7 +147,7 @@ export function App() {
         {/* DOMAIN 3: MEMBERSHIP SALES & GROWTH */}
         {activeDomain === 'sales' && (
           <div className="space-y-6 animate-in fade-in duration-150">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-6">
                 <MembershipSales
                   data={analytics.salesBreakdown}
@@ -190,7 +190,7 @@ export function App() {
         {/* DOMAIN 4: MEMBERSHIPS, CHURN & RETENTION */}
         {activeDomain === 'memberships' && (
           <div className="space-y-6 animate-in fade-in duration-150">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-6">
                 <ChurnBreakdown
                   data={analytics.churnAnalysis}

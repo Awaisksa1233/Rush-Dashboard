@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { PaymentHealthFunnel } from '../../types/dashboard';
 import { formatSAR } from '../../services/analyticsService';
 import { ShieldCheck, AlertTriangle, RefreshCw, XCircle, CheckCircle2, ArrowRight } from 'lucide-react';
@@ -52,7 +52,7 @@ export const PaymentHealthFunnelComponent: React.FC<PaymentHealthFunnelProps> = 
         </p>
 
         {/* Funnel Flow Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 sm:gap-3.5 mb-4">
           {/* Step 1: Due */}
           <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
             <div className="text-[10px] uppercase font-semibold text-slate-400">1. Renewals Due</div>

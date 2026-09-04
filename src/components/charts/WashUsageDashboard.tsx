@@ -11,7 +11,7 @@ interface WashUsageDashboardProps {
 
 export const WashUsageDashboard: React.FC<WashUsageDashboardProps> = ({ usage, onFilterSleepers }) => {
   return (
-    <div className="space-y-4 font-sans select-none">
+    <div className="space-y-6 font-sans select-none">
       {/* 
         ROW 1: USAGE FREQUENCY TIERS (Sleepers vs Regulars vs Super-users)
       */}
@@ -48,7 +48,7 @@ export const WashUsageDashboard: React.FC<WashUsageDashboardProps> = ({ usage, o
         </div>
 
         {/* 4 Usage Tier Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {usage.usageTiers.map((tier, idx) => {
             const isRisk = tier.status === 'risk';
             return (
