@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { MetricCard } from './MetricCard';
 import { ExecutiveMetrics, ModalDrilldownType } from '../../types/dashboard';
 import { formatSAR } from '../../services/analyticsService';
@@ -27,7 +27,7 @@ export const ExecutiveKpiGrid: React.FC<ExecutiveKpiGridProps> = ({
   const { netRevenue, mrr, validMemberships, netMemberGrowth, renewalCollectionRate, churnRate } = metrics;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 lg:gap-6">
       {/* CARD 1 — NET REVENUE */}
       <MetricCard
         title="Net Revenue"

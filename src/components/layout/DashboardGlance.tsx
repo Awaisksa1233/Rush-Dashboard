@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { 
   ExecutiveMetrics, 
   RevenueSeriesPoint, 
@@ -45,14 +45,14 @@ export const DashboardGlance: React.FC<DashboardGlanceProps> = ({
   const { netRevenue, mrr, validMemberships, netMemberGrowth, renewalCollectionRate, churnRate } = metrics;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 lg:space-y-8">
       {/* 1. EXECUTIVE KPI GRID (The 6 Essential Management Metrics) */}
       <section aria-label="Essential Executive KPIs">
         <ExecutiveKpiGrid metrics={metrics} onDrilldown={onDrilldown} />
       </section>
 
       {/* 2. THE 10-SECOND MANAGEMENT GLANCE BOARD (Compact High-Density Visual Summaries) */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="10-Second Management Signals">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6" aria-label="10-Second Management Signals">
         {/* SIGNAL 1: MRR Waterfall Pulse */}
         <div 
           onClick={onGoToAnalytics}
@@ -227,7 +227,7 @@ export const DashboardGlance: React.FC<DashboardGlanceProps> = ({
       </section>
 
       {/* 3. EXECUTIVE QUICK SUMMARY: Sparkline Trend + Movement Snapshot */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-5" aria-label="Glance Quick Charts">
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6" aria-label="Glance Quick Charts">
         {/* Net Revenue Snapshot Chart */}
         <div className="lg:col-span-8 glass-card rounded-xl p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">

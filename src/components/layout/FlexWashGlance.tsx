@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { 
   ExecutiveMetrics, 
   RevenueSeriesPoint, 
@@ -124,7 +124,7 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
   const interiorCleaningPct = Math.round((interiorCleaningsCount / totalExteriorWashes) * 100);
 
   return (
-    <div className="space-y-5 font-sans select-none">
+    <div className="space-y-6 sm:space-y-7 lg:space-y-8 font-sans select-none">
       {/* ========================================================================= */}
       {/* HORIZONTAL HERO BANNER: NET REVENUE                                       */}
       {/* ========================================================================= */}
@@ -181,7 +181,7 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
           </div>
 
           {/* SECTION 3: THE 4 UNIT PRICE TIERS */}
-          <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
               <div className="text-[10px] text-slate-500 font-medium">Avg Total Wash</div>
               <div className="font-mono font-bold text-slate-900 text-sm mt-0.5">SAR 38.50</div>
@@ -213,7 +213,7 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
       {/* ========================================================================= */}
       {/* ROW 2: The 4 Management Cards: Sales > Memberships > Renewals > Washes    */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4.5 items-stretch">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 sm:gap-6 items-stretch">
         
         {/* 1. SALES */}
         <div 
