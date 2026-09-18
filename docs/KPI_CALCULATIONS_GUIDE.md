@@ -19,13 +19,6 @@ A business-level summary of how Key Performance Indicators (KPIs) are defined an
 - **What It Measures**: The predictable, normalized monthly subscription revenue from all active members.
 - **Formula**:
   $$\text{Closing MRR} = \sum (\text{Active Members in Plan} \times \text{Monthly Plan Price})$$
-- **Plan Pricing Reference**:
-  - **Fresh Wash**: SAR 100 / month
-  - **Shiny Wash**: SAR 69 / month
-  - **Nano Ceramic**: SAR 169 / month
-  - **Interior Clean**: SAR 79 / month
-  - **Nano + Interior**: SAR 219 / month
-  - **Shiny + Interior**: SAR 119 / month
 
 ---
 
