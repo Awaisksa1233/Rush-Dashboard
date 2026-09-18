@@ -101,7 +101,7 @@ export const MembershipSales: React.FC<MembershipSalesProps> = ({ data, onPackag
       </div>
 
       <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
-        <span>Channel: 68% On-site / 32% App</span>
+        <span>Channel: 100% Lane & App Subscriptions</span>
         {onViewTeam ? (
           <button
             onClick={onViewTeam}
@@ -110,7 +110,7 @@ export const MembershipSales: React.FC<MembershipSalesProps> = ({ data, onPackag
             <span>Sales Team Performance &rarr;</span>
           </button>
         ) : (
-          <span>Upgrade conversion: 14.2%</span>
+          <span>Al Kharj (SHP-00001)</span>
         )}
       </div>
     </div>

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { RevenueBreakdownCategory } from '../../types/dashboard';
 import { formatSAR } from '../../services/analyticsService';
 import { TrendingUp, TrendingDown, Layers } from 'lucide-react';
@@ -10,6 +10,10 @@ interface RevenueBreakdownProps {
 }
 
 export const RevenueBreakdown: React.FC<RevenueBreakdownProps> = ({ categories, totalRevenue }) => {
+  const recurringAmount = categories.filter(c => c.id !== 'shiny').reduce((sum, c) => sum + Math.max(0, c.amount), 0);
+  const totalAmount = categories.reduce((sum, c) => sum + Math.max(0, c.amount), 0);
+  const recurringPct = totalAmount > 0 ? ((recurringAmount / totalAmount) * 100).toFixed(1) : '100.0';
+
   return (
     <div className="glass-card rounded-xl p-5 flex flex-col justify-between">
       <div>
@@ -80,8 +84,8 @@ export const RevenueBreakdown: React.FC<RevenueBreakdownProps> = ({ categories, 
       </div>
 
       <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex justify-between">
-        <span>Recurring Revenue Ratio: <strong className="text-emerald-800">82.4%</strong></span>
-        <span>Refund Rate: <strong className="text-slate-700">0.9%</strong></span>
+        <span>Recurring Revenue Ratio: <strong className="text-emerald-800">{recurringPct}%</strong></span>
+        <span>Gateway Status: <strong className="text-slate-700">Moyasar Live</strong></span>
       </div>
     </div>
   );

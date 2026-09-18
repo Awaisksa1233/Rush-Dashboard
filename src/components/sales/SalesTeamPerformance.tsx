@@ -21,7 +21,9 @@ import {
   Briefcase,
   LayoutGrid,
   List,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Database,
+  Download
 } from 'lucide-react';
 import { InfoTooltip } from '../common/Tooltip';
 import { PACKAGES } from '../../data/packages';
@@ -40,18 +42,18 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
   onLocationSelect
 }) => {
   const {
-    totalReps,
-    activeLanes,
-    totalRepSales,
-    totalRepRevenue,
-    teamQuotaTarget,
-    teamQuotaAttainmentPct,
-    avgLaneConversionRate,
-    totalCommissions,
+    totalReps = 0,
+    activeLanes = 0,
+    totalRepSales = 0,
+    totalRepRevenue = 0,
+    teamQuotaTarget = 0,
+    teamQuotaAttainmentPct = 0,
+    avgLaneConversionRate = 0,
+    totalCommissions = 0,
     topPerformer,
-    reps,
-    branchBreakdown
-  } = data;
+    reps = [],
+    branchBreakdown = []
+  } = data || {};
 
   // Local UI filters & view mode
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,9 +62,44 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [activeRepModal, setActiveRepModal] = useState<SalesRepPerformance | null>(null);
 
+  const exportAdvisorDealsCsv = (rep: SalesRepPerformance) => {
+    const headers = [
+      "Deal ID",
+      "Customer Name",
+      "Vehicle Plate",
+      "Package Tier",
+      "Package Name",
+      "Amount (SAR)",
+      "Sale Type",
+      "Timestamp",
+      "Commission (SAR)",
+      "Lane"
+    ];
+    const rows = (rep.recentDeals || []).map(d => [
+      d.id,
+      `"${(d.customerName || '').replace(/"/g, '""')}"`,
+      `"${d.vehiclePlate}"`,
+      d.packageTier,
+      `"${(d.packageName || '').replace(/"/g, '""')}"`,
+      d.amount,
+      d.saleType,
+      `"${d.timestamp}"`,
+      d.commission,
+      `"${(d.lane || '').replace(/"/g, '""')}"`
+    ]);
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${rep.name.toLowerCase().replace(/\s+/g, '_')}_commission_deals.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Filtered and sorted reps
   const filteredReps = useMemo(() => {
-    let result = [...reps];
+    let result = reps ? [...reps] : [];
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -103,6 +140,18 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
     if (pct >= 80) return { text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', bar: 'bg-amber-500' };
     return { text: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200', bar: 'bg-rose-500' };
   };
+
+  if (!data?.reps || data.reps.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs">
+        <div className="text-center py-12 text-slate-400">
+          <Database className="w-8 h-8 mx-auto mb-3 text-slate-300" />
+          <p className="text-sm font-medium">No sales team data available from database</p>
+          <p className="text-xs mt-1">Data will appear here when available in the database</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -777,17 +826,39 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                   ))}
                 </div>
               </div>
+
+              {/* Calculation Rules Explainer */}
+              <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-100 text-[11px] text-blue-900 leading-relaxed">
+                <div className="font-bold text-blue-950 mb-1 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Subscription Renewal Commission Rules</span>
+                </div>
+                <div className="text-slate-600 space-y-0.5 text-[10.5px]">
+                  <div>• <strong>Rates</strong>: Fresh: 2 SAR | Shiny: 6 SAR | Nano: 10 SAR | Interior Clean: 10 SAR</div>
+                  <div>• <strong>Attribution</strong>: Earned on 1st full-price renewal. Upgrades split incremental difference (e.g. Fresh→Nano = 2 SAR orig + 8 SAR upg).</div>
+                  <div>• <strong>Winbacks</strong>: 50% commission for members inactive ≥ 60 days. Awarded strictly 1x per subscription lifecycle.</div>
+                </div>
+              </div>
             </div>
 
             {/* Modal Footer */}
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
               <span className="text-slate-400 font-mono">Advisor ID: {activeRepModal.id}</span>
-              <button
-                onClick={() => setActiveRepModal(null)}
-                className="px-4 py-1.5 font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg shadow-2xs transition-colors"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => exportAdvisorDealsCsv(activeRepModal)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export Deals (CSV)</span>
+                </button>
+                <button
+                  onClick={() => setActiveRepModal(null)}
+                  className="px-4 py-1.5 font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg shadow-2xs transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

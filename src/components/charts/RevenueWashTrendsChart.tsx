@@ -1,82 +1,62 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Maximize2, ArrowRight, Calendar, Sparkles } from 'lucide-react';
 import { formatSAR } from '../../services/analyticsService';
+import productionData from '../../data/productionCrmData.json';
 
 export interface TrendDataPoint {
   id: string;
-  date: string; // ISO date or "2026-05-18"
-  displayDate: string; // "May 18, 2026"
-  shortDate: string; // "May 18"
-  revenue: number; // e.g. 6850
-  washes: number; // e.g. 182
+  date: string;
+  displayDate: string;
+  shortDate: string;
+  revenue: number;
+  washes: number;
   memberWashes: number;
   singleWashes: number;
   notes?: string;
 }
 
-// 31-day data for May 2026, crafted with realistic wash & revenue patterns
-// including the May 18 peak from the screenshot
-const DEFAULT_TREND_DATA: TrendDataPoint[] = [
-  { id: '1', date: '2026-05-01', displayDate: 'May 01, 2026', shortDate: 'May 01', revenue: 3200, washes: 82, memberWashes: 65, singleWashes: 17 },
-  { id: '2', date: '2026-05-02', displayDate: 'May 02, 2026', shortDate: 'May 02', revenue: 3450, washes: 90, memberWashes: 72, singleWashes: 18 },
-  { id: '3', date: '2026-05-03', displayDate: 'May 03, 2026', shortDate: 'May 03', revenue: 2900, washes: 78, memberWashes: 60, singleWashes: 18 },
-  { id: '4', date: '2026-05-04', displayDate: 'May 04, 2026', shortDate: 'May 04', revenue: 3100, washes: 85, memberWashes: 68, singleWashes: 17 },
-  { id: '5', date: '2026-05-05', displayDate: 'May 05, 2026', shortDate: 'May 05', revenue: 3300, washes: 88, memberWashes: 70, singleWashes: 18 },
-  { id: '6', date: '2026-05-06', displayDate: 'May 06, 2026', shortDate: 'May 06', revenue: 3600, washes: 95, memberWashes: 76, singleWashes: 19 },
-  { id: '7', date: '2026-05-07', displayDate: 'May 07, 2026', shortDate: 'May 07', revenue: 4200, washes: 112, memberWashes: 89, singleWashes: 23 },
-  { id: '8', date: '2026-05-08', displayDate: 'May 08, 2026', shortDate: 'May 08', revenue: 4500, washes: 120, memberWashes: 96, singleWashes: 24 },
-  { id: '9', date: '2026-05-09', displayDate: 'May 09, 2026', shortDate: 'May 09', revenue: 3800, washes: 102, memberWashes: 81, singleWashes: 21 },
-  { id: '10', date: '2026-05-10', displayDate: 'May 10, 2026', shortDate: 'May 10', revenue: 3250, washes: 86, memberWashes: 69, singleWashes: 17 },
-  { id: '11', date: '2026-05-11', displayDate: 'May 11, 2026', shortDate: 'May 11', revenue: 3400, washes: 91, memberWashes: 73, singleWashes: 18 },
-  { id: '12', date: '2026-05-12', displayDate: 'May 12, 2026', shortDate: 'May 12', revenue: 3650, washes: 98, memberWashes: 78, singleWashes: 20 },
-  { id: '13', date: '2026-05-13', displayDate: 'May 13, 2026', shortDate: 'May 13', revenue: 3900, washes: 104, memberWashes: 83, singleWashes: 21 },
-  { id: '14', date: '2026-05-14', displayDate: 'May 14, 2026', shortDate: 'May 14', revenue: 4100, washes: 110, memberWashes: 88, singleWashes: 22 },
-  { id: '15', date: '2026-05-15', displayDate: 'May 15, 2026', shortDate: 'May 15', revenue: 3800, washes: 101, memberWashes: 80, singleWashes: 21 },
-  // Core Focus Window from Screenshot (May 16 - May 22)
-  { id: '16', date: '2026-05-16', displayDate: 'May 16, 2026', shortDate: 'May 16', revenue: 3600, washes: 96, memberWashes: 77, singleWashes: 19 },
-  { id: '17', date: '2026-05-17', displayDate: 'May 17, 2026', shortDate: 'May 17', revenue: 4150, washes: 112, memberWashes: 90, singleWashes: 22 },
-  { id: '18', date: '2026-05-18', displayDate: 'May 18, 2026', shortDate: 'May 18', revenue: 6850, washes: 182, memberWashes: 146, singleWashes: 36, notes: 'Peak Promotion Day' },
-  { id: '19', date: '2026-05-19', displayDate: 'May 19, 2026', shortDate: 'May 19', revenue: 4850, washes: 130, memberWashes: 104, singleWashes: 26 },
-  { id: '20', date: '2026-05-20', displayDate: 'May 20, 2026', shortDate: 'May 20', revenue: 3150, washes: 85, memberWashes: 68, singleWashes: 17 },
-  { id: '21', date: '2026-05-21', displayDate: 'May 21, 2026', shortDate: 'May 21', revenue: 3450, washes: 93, memberWashes: 74, singleWashes: 19 },
-  { id: '22', date: '2026-05-22', displayDate: 'May 22, 2026', shortDate: 'May 22', revenue: 3820, washes: 105, memberWashes: 84, singleWashes: 21 },
-  // Remaining May points
-  { id: '23', date: '2026-05-23', displayDate: 'May 23, 2026', shortDate: 'May 23', revenue: 4100, washes: 110, memberWashes: 88, singleWashes: 22 },
-  { id: '24', date: '2026-05-24', displayDate: 'May 24, 2026', shortDate: 'May 24', revenue: 3700, washes: 99, memberWashes: 79, singleWashes: 20 },
-  { id: '25', date: '2026-05-25', displayDate: 'May 25, 2026', shortDate: 'May 25', revenue: 3950, washes: 106, memberWashes: 85, singleWashes: 21 },
-  { id: '26', date: '2026-05-26', displayDate: 'May 26, 2026', shortDate: 'May 26', revenue: 4400, washes: 118, memberWashes: 94, singleWashes: 24 },
-  { id: '27', date: '2026-05-27', displayDate: 'May 27, 2026', shortDate: 'May 27', revenue: 6200, washes: 165, memberWashes: 132, singleWashes: 33, notes: 'Saudi Payroll Day' },
-  { id: '28', date: '2026-05-28', displayDate: 'May 28, 2026', shortDate: 'May 28', revenue: 5800, washes: 154, memberWashes: 123, singleWashes: 31 },
-  { id: '29', date: '2026-05-29', displayDate: 'May 29, 2026', shortDate: 'May 29', revenue: 5100, washes: 136, memberWashes: 109, singleWashes: 27 },
-  { id: '30', date: '2026-05-30', displayDate: 'May 30, 2026', shortDate: 'May 30', revenue: 4600, washes: 122, memberWashes: 98, singleWashes: 24 },
-  { id: '31', date: '2026-05-31', displayDate: 'May 31, 2026', shortDate: 'May 31', revenue: 4300, washes: 115, memberWashes: 92, singleWashes: 23 }
-];
+// Map 100% real daily revenue and wash series from MongoDB production dataset
+const REAL_TREND_DATA: TrendDataPoint[] = (productionData.revenueTrend || []).map((pt: any, idx: number) => {
+  const parts = pt.date.split('-');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const monthStr = monthNames[monthIdx] || parts[1];
+  const dayStr = parts[2] || '01';
+  const displayDate = `${monthStr} ${dayStr}, ${parts[0]}`;
+  const shortDate = `${monthStr} ${dayStr}`;
 
-/**
- * Creates smooth cubic Bézier spline command path string through points
- */
+  return {
+    id: String(idx + 1),
+    date: pt.date,
+    displayDate,
+    shortDate,
+    revenue: pt.totalRevenue,
+    washes: pt.washes || 1,
+    memberWashes: pt.washes || 1,
+    singleWashes: Math.round(pt.singleWashRevenue / 45),
+    notes: pt.totalRevenue >= 7400 ? 'Peak Revenue' : undefined
+  };
+});
+
+// Helper to generate smooth SVG cubic spline paths
 function createSmoothSplinePath(points: { x: number; y: number }[]): string {
-  if (!points || points.length === 0) return '';
+  if (points.length === 0) return '';
   if (points.length === 1) return `M ${points[0].x},${points[0].y}`;
-  if (points.length === 2) return `M ${points[0].x},${points[0].y} L ${points[1].x},${points[1].y}`;
-
+  
   let path = `M ${points[0].x},${points[0].y}`;
-
   for (let i = 0; i < points.length - 1; i++) {
     const p0 = points[i === 0 ? 0 : i - 1];
     const p1 = points[i];
     const p2 = points[i + 1];
-    const p3 = points[i + 2 >= points.length ? points.length - 1 : i + 2];
-
-    // Catmull-Rom to Cubic Bezier control points
+    const p3 = points[i + 2 < points.length ? i + 2 : points.length - 1];
+    
     const cp1x = p1.x + (p2.x - p0.x) / 6;
     const cp1y = p1.y + (p2.y - p0.y) / 6;
     const cp2x = p2.x - (p3.x - p1.x) / 6;
     const cp2y = p2.y - (p3.y - p1.y) / 6;
-
-    path += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+    
+    path += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
   }
-
   return path;
 }
 
@@ -87,12 +67,12 @@ interface RevenueWashTrendsChartProps {
 
 export const RevenueWashTrendsChart: React.FC<RevenueWashTrendsChartProps> = ({
   onGoToAnalytics,
-  initialData = DEFAULT_TREND_DATA
+  initialData = REAL_TREND_DATA
 }) => {
   // Range slider window state: indices in initialData (0 to initialData.length - 1)
-  // Default to May 16 (index 15) to May 22 (index 21) as shown in the screenshot
-  const [startIndex, setStartIndex] = useState(15);
-  const [endIndex, setEndIndex] = useState(21);
+  const defaultTotal = initialData.length;
+  const [startIndex, setStartIndex] = useState(Math.max(0, defaultTotal - 14));
+  const [endIndex, setEndIndex] = useState(Math.max(0, defaultTotal - 1));
 
   // Active series visibility toggles
   const [showRevenue, setShowRevenue] = useState(true);
@@ -345,20 +325,24 @@ export const RevenueWashTrendsChart: React.FC<RevenueWashTrendsChartProps> = ({
             <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600">
               <button
                 type="button"
-                onClick={() => handleSetPreset('focus')}
+                onClick={() => handleSetPreset('14d')}
                 className={`px-2.5 py-1 rounded-md transition-all text-[11px] font-semibold ${
-                  startIndex === 15 && endIndex === 21
+                  startIndex === Math.max(0, totalPointsCount - 14)
                     ? 'bg-white text-purple-700 shadow-xs'
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
-                title="May 16 - May 22 Window"
+                title="Recent 14 Days"
               >
-                May 16–22
+                14 Days
               </button>
               <button
                 type="button"
                 onClick={() => handleSetPreset('7d')}
-                className="px-2.5 py-1 rounded-md transition-all text-[11px] font-semibold text-slate-500 hover:text-slate-900"
+                className={`px-2.5 py-1 rounded-md transition-all text-[11px] font-semibold ${
+                  startIndex === Math.max(0, totalPointsCount - 7)
+                    ? 'bg-white text-purple-700 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
               >
                 Last 7D
               </button>
@@ -371,7 +355,7 @@ export const RevenueWashTrendsChart: React.FC<RevenueWashTrendsChartProps> = ({
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                All May (31D)
+                Full Trend ({totalPointsCount}D)
               </button>
             </div>
 

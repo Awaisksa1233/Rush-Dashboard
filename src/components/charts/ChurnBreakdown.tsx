@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { ChurnAnalysis } from '../../types/dashboard';
 import { InfoTooltip } from '../common/Tooltip';
 import { AlertCircle, UserMinus } from 'lucide-react';
@@ -6,9 +6,10 @@ import { AlertCircle, UserMinus } from 'lucide-react';
 interface ChurnBreakdownProps {
   data: ChurnAnalysis;
   onDrilldown?: () => void;
+  onGoToRetention?: () => void;
 }
 
-export const ChurnBreakdown: React.FC<ChurnBreakdownProps> = ({ data, onDrilldown }) => {
+export const ChurnBreakdown: React.FC<ChurnBreakdownProps> = ({ data, onDrilldown, onGoToRetention }) => {
   const { totalChurn, voluntaryChurn, involuntaryChurn, churnRatePct, voluntaryReasons, involuntaryReasons } = data;
 
   return (
@@ -31,8 +32,16 @@ export const ChurnBreakdown: React.FC<ChurnBreakdownProps> = ({ data, onDrilldow
         <div className="flex items-center gap-4 mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200/80">
           <div className="flex-1">
             <div className="text-[11px] text-slate-500 font-medium">Voluntary (Intentional)</div>
-            <div className="text-lg font-bold font-display text-orange-600">
-              {voluntaryChurn} <span className="text-xs font-normal text-slate-400">({Math.round((voluntaryChurn / totalChurn) * 100 || 58)}%)</span>
+            <div className="text-lg font-bold font-display text-orange-600 flex items-center justify-between">
+              <span>{voluntaryChurn} <span className="text-xs font-normal text-slate-400">({Math.round((voluntaryChurn / totalChurn) * 100 || 58)}%)</span></span>
+              {onGoToRetention && (
+                <button
+                  onClick={onGoToRetention}
+                  className="text-[10px] font-bold text-[#c91e2f] bg-[#c91e2f]/10 hover:bg-[#c91e2f]/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                >
+                  Save Flows &rarr;
+                </button>
+              )}
             </div>
           </div>
           <div className="w-px h-8 bg-slate-200"></div>
@@ -88,17 +97,28 @@ export const ChurnBreakdown: React.FC<ChurnBreakdownProps> = ({ data, onDrilldow
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between text-[11px] text-slate-400">
-        <span>Average member lifespan before churn: <strong>9.4 months</strong></span>
-        {onDrilldown && (
-          <button 
-            onClick={onDrilldown} 
-            className="text-emerald-700 font-semibold hover:underline"
-          >
-            Review churned logs &rarr;
-          </button>
-        )}
+      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+        <span>Avg lifespan before churn: <strong className="text-slate-700">{data.averageTenureMonths || 6.0} mo</strong></span>
+        <div className="flex items-center gap-3">
+          {onGoToRetention && (
+            <button 
+              onClick={onGoToRetention} 
+              className="text-[#c91e2f] font-bold hover:underline cursor-pointer"
+            >
+              Retention Engine &rarr;
+            </button>
+          )}
+          {onDrilldown && (
+            <button 
+              onClick={onDrilldown} 
+              className="text-slate-600 hover:text-slate-900 font-semibold hover:underline cursor-pointer"
+            >
+              Review logs &rarr;
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 };
+

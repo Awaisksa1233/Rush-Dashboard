@@ -3,3 +3,26 @@ dist
 .vscode
 .idea
 *.log
+
+# Environment & credentials
+.env
+.env*.local
+.env.*
+
+# Data dumps and customer exports
+*.csv
+*.xlsx
+rushwash_commission_audit_raw_data.json
+dumps/
+exports/
+__pycache__/
+
+# MongoDB & database dumps
+*.tgz
+*.tar.gz
+database/
+database/dbpath/
+database/extracted/
+database/*.wt
+database/*.bson
+

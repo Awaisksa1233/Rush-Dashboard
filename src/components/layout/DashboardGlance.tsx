@@ -118,11 +118,11 @@ export const DashboardGlance: React.FC<DashboardGlanceProps> = ({
               <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
                 <div 
                   className="bg-emerald-600 h-full" 
-                  style={{ width: `${Math.round(((netMemberGrowth.newCount + netMemberGrowth.reactivatedCount) / (netMemberGrowth.newCount + netMemberGrowth.reactivatedCount + netMemberGrowth.voluntaryChurnCount + netMemberGrowth.involuntaryChurnCount)) * 100)}%` }} 
+                  style={{ width: `${Math.round(((netMemberGrowth.newCount + netMemberGrowth.reactivatedCount) / Math.max(1, netMemberGrowth.newCount + netMemberGrowth.reactivatedCount + netMemberGrowth.voluntaryChurnCount + netMemberGrowth.involuntaryChurnCount)) * 100)}%` }} 
                 />
                 <div 
                   className="bg-rose-500 h-full" 
-                  style={{ width: `${Math.round(((netMemberGrowth.voluntaryChurnCount + netMemberGrowth.involuntaryChurnCount) / (netMemberGrowth.newCount + netMemberGrowth.reactivatedCount + netMemberGrowth.voluntaryChurnCount + netMemberGrowth.involuntaryChurnCount)) * 100)}%` }} 
+                  style={{ width: `${Math.round(((netMemberGrowth.voluntaryChurnCount + netMemberGrowth.involuntaryChurnCount) / Math.max(1, netMemberGrowth.newCount + netMemberGrowth.reactivatedCount + netMemberGrowth.voluntaryChurnCount + netMemberGrowth.involuntaryChurnCount)) * 100)}%` }} 
                 />
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -252,7 +252,7 @@ export const DashboardGlance: React.FC<DashboardGlanceProps> = ({
           {/* Sparkline & Bars preview */}
           <div className="h-32 flex items-end gap-1.5 pt-4 pb-1">
             {trendPoints.map((pt, i) => {
-              const maxPoint = Math.max(...trendPoints.map(p => p.totalRevenue));
+              const maxPoint = Math.max(1, ...trendPoints.map(p => p.totalRevenue));
               const heightPct = Math.max((pt.totalRevenue / maxPoint) * 100, 10);
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
@@ -290,7 +290,7 @@ export const DashboardGlance: React.FC<DashboardGlanceProps> = ({
                 Retention Health
               </h3>
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                93.4% M1 Retention
+                {(100 - churnRate.totalRatePct).toFixed(1)}% Retention
               </span>
             </div>
 
@@ -301,7 +301,7 @@ export const DashboardGlance: React.FC<DashboardGlanceProps> = ({
                   <span className="font-bold text-orange-600">{churnRate.voluntaryRatePct}% ({churnRate.voluntaryChurnCount})</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-orange-400 h-full" style={{ width: `${churnRate.voluntaryRatePct * 15}%` }} />
+                  <div className="bg-orange-400 h-full" style={{ width: `${Math.min(100, churnRate.voluntaryRatePct * 15)}%` }} />
                 </div>
               </div>
 
@@ -311,13 +311,13 @@ export const DashboardGlance: React.FC<DashboardGlanceProps> = ({
                   <span className="font-bold text-rose-600">{churnRate.involuntaryRatePct}% ({churnRate.involuntaryChurnCount})</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-rose-500 h-full" style={{ width: `${churnRate.involuntaryRatePct * 15}%` }} />
+                  <div className="bg-rose-500 h-full" style={{ width: `${Math.min(100, churnRate.involuntaryRatePct * 15)}%` }} />
                 </div>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 mt-3 text-[11px]">
-                <div className="font-semibold text-slate-700 mb-1">Primary Exit Reason:</div>
-                <div className="text-slate-600">Customer Relocation (36%) & Insufficient Funds (48%)</div>
+                <div className="font-semibold text-slate-700 mb-1">Primary Exit Reasons:</div>
+                <div className="text-slate-600">Low Frequency (SEG-00001) & Mada Insufficient Funds (51)</div>
               </div>
             </div>
           </div>

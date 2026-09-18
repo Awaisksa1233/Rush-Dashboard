@@ -5,7 +5,7 @@ import {
   LocationId, 
   PackageTier 
 } from '../../types/dashboard';
-import { LOCATIONS } from '../../data/packages';
+import { LOCATIONS, PACKAGES } from '../../data/packages';
 import { 
   Calendar, 
   MapPin, 
@@ -17,10 +17,11 @@ import {
   ShoppingBag, 
   Gauge,
   Layers,
-  Users
+  Users,
+  ShieldCheck
 } from 'lucide-react';
 
-export type ActiveDomainTab = 'glance' | 'revenue' | 'sales' | 'team' | 'memberships' | 'usage' | 'baremetrics';
+export type ActiveDomainTab = 'glance' | 'analytics' | 'revenue' | 'sales' | 'team' | 'memberships' | 'retention' | 'usage' | 'baremetrics';
 
 interface DashboardHeaderProps {
   activeDomain: ActiveDomainTab;
@@ -35,6 +36,9 @@ interface DashboardHeaderProps {
   onPackageFilterChange: (pkg: PackageTier | 'all') => void;
   onRefresh: () => void;
   isRefreshing?: boolean;
+  onOpenCancelPortal?: () => void;
+  isV1?: boolean;
+  onToggleV1?: () => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -49,7 +53,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   packageFilter,
   onPackageFilterChange,
   onRefresh,
-  isRefreshing = false
+  isRefreshing = false,
+  onOpenCancelPortal,
+  isV1 = false,
+  onToggleV1
 }) => {
   const datePresets: { id: DateRangePreset; label: string }[] = [
     { id: 'today', label: 'Today' },
@@ -66,15 +73,21 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     { id: 'previous_year', label: 'vs. Previous Year' },
   ];
 
-  const domainTabs: { id: ActiveDomainTab; label: string; icon: React.FC<{ className?: string }> }[] = [
-    { id: 'glance', label: 'At a Glance', icon: LayoutDashboard },
-    { id: 'revenue', label: 'Revenue & MRR', icon: DollarSign },
-    { id: 'sales', label: 'Sales & Growth', icon: ShoppingBag },
-    { id: 'team', label: 'Sales Team', icon: Users },
-    { id: 'memberships', label: 'Memberships & Churn', icon: UserCheck },
-    { id: 'usage', label: 'Wash Usage', icon: Gauge },
-    { id: 'baremetrics', label: 'Baremetrics SaaS', icon: Layers },
-  ];
+  const domainTabs: { id: ActiveDomainTab; label: string; icon: React.FC<{ className?: string }> }[] = isV1
+    ? [
+        { id: 'glance', label: 'At a Glance', icon: LayoutDashboard },
+        { id: 'analytics', label: 'Analytics', icon: Layers },
+      ]
+    : [
+        { id: 'glance', label: 'At a Glance', icon: LayoutDashboard },
+        { id: 'revenue', label: 'Revenue & MRR', icon: DollarSign },
+        { id: 'sales', label: 'Sales & Growth', icon: ShoppingBag },
+        { id: 'team', label: 'Sales Team', icon: Users },
+        { id: 'memberships', label: 'Memberships & Churn', icon: UserCheck },
+        { id: 'retention', label: 'Retention & Save Flows', icon: ShieldCheck },
+        { id: 'usage', label: 'Wash Usage', icon: Gauge },
+        { id: 'baremetrics', label: 'Baremetrics SaaS', icon: Layers },
+      ];
 
   return (
     <header className="bg-white border-b border-[#e5e5e5] sticky top-0 z-30 shadow-2xs backdrop-blur-md bg-white/95">
@@ -91,12 +104,28 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 <span className="text-base font-black font-display text-[#000000] tracking-tight">
                   RUSH <span className="text-[#c91e2f] font-normal font-sans">رش</span>
                 </span>
-                <span className="text-[10px] font-bold bg-[#fde8ea] text-[#c91e2f] border border-[#c91e2f]/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  Get in, Get Clean, Get Going
+                <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Live MongoDB Atlas
                 </span>
+                {onToggleV1 && (
+                  <button
+                    onClick={onToggleV1}
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                      isV1 
+                        ? 'bg-black text-white border-black hover:bg-slate-800' 
+                        : 'bg-white text-slate-700 border-slate-300 hover:border-slate-500'
+                    }`}
+                    title={isV1 ? "Click to view classic all-tabs mode" : "Click to view new /v1/ streamlined mode"}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isV1 ? 'bg-red-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                    <span>{isV1 ? 'v1.0 Streamlined' : 'Switch to /v1/'}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
+
 
           {/* Controls Bar */}
           <div className="flex flex-wrap items-center gap-2">
@@ -158,10 +187,11 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 className="appearance-none bg-white border border-[#e5e5e5] hover:border-slate-400 text-slate-800 text-xs font-medium py-1.5 pl-3 pr-7 rounded-lg shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#c91e2f]/20 focus:border-[#c91e2f] transition-all cursor-pointer"
               >
                 <option value="all">All Packages</option>
-                <option value="fresh">Fresh (SAR 149)</option>
-                <option value="shiny">Shiny (SAR 199)</option>
-                <option value="nano">Nano (SAR 289)</option>
-                <option value="interior_addon">Interior (SAR 99)</option>
+                {Object.values(PACKAGES).map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} (SAR {pkg.monthlyPrice})
+                  </option>
+                ))}
               </select>
               <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -175,6 +205,18 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#c91e2f]' : ''}`} />
             </button>
+
+            {/* Direct Customer /cancel Portal Link */}
+            {onOpenCancelPortal && (
+              <button
+                onClick={onOpenCancelPortal}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-[#c91e2f] border border-rose-200 rounded-lg text-xs font-bold shadow-2xs transition-all active:scale-95"
+                title="Launch Customer Cancellation Portal (/cancel)"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Customer /cancel Portal</span>
+              </button>
+            )}
           </div>
         </div>
 

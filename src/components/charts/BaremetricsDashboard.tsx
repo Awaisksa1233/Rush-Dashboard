@@ -8,6 +8,7 @@ import {
   ChurnAnalysis
 } from '../../types/dashboard';
 import { formatSAR } from '../../services/analyticsService';
+import productionData from '../../data/productionCrmData.json';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -123,33 +124,68 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
 
   // 1. BAREMETRICS QUICK RATIO FORMULA
   // Quick Ratio = (New MRR + Reactivation MRR) / (Churn MRR + Contraction MRR)
-  const newMrr = mrr.newMrr + mrr.reactivationMrr; // e.g. SAR 56,600
-  const churnMrr = mrr.churnedMrr + mrr.failedPaymentMrr; // e.g. SAR 17,200
-  const quickRatio = Number((newMrr / (churnMrr || 1)).toFixed(2)); // e.g. 3.22
+  const newMrr = mrr.newMrr + mrr.reactivationMrr;
+  const churnMrr = mrr.churnedMrr + mrr.failedPaymentMrr;
+  const quickRatio = churnMrr > 0 ? Number((newMrr / churnMrr).toFixed(2)) : 1.0;
 
   // 2. NET REVENUE CHURN (Baremetrics Gold Standard)
-  // Expansion vs Churn
-  const netRevenueChurnPct = -1.8; // negative means net expansion
+  const netRevenueChurnPct = churnRate.totalRatePct;
 
   // 3. ARPM & LTV
-  const arpm = Math.round(mrr.closingMrr / validMemberships.totalValid);
-  const ltv = Math.round(arpm * 11.6);
+  const arpm = validMemberships.totalValid > 0 ? Math.round(mrr.closingMrr / validMemberships.totalValid) : 0;
+  const avgTenure = churnAnalysis.averageTenureMonths || 6.0;
+  const ltv = Math.round(arpm * avgTenure);
 
-  // 4. Tenured Cohort Cancellations (Tenure Histogram)
+  // 4. Tenured Cohort Cancellations (Dynamically calculated from MongoDB voluntaryChurns)
+  const churnList = productionData.voluntaryChurns || [];
+  const m1Count = churnList.filter((c: any) => c.tenureMonths === 1).length;
+  const m24Count = churnList.filter((c: any) => c.tenureMonths >= 2 && c.tenureMonths <= 4).length;
+  const m58Count = churnList.filter((c: any) => c.tenureMonths >= 5 && c.tenureMonths <= 8).length;
+  const m912Count = churnList.filter((c: any) => c.tenureMonths >= 9 && c.tenureMonths <= 12).length;
+  const m13Count = churnList.filter((c: any) => c.tenureMonths >= 13).length;
+  const totalVoluntary = churnList.length || 1;
+
   const tenureCohorts = [
-    { label: 'Month 1 (1st Renewal)', count: 48, pct: 35, color: '#ef4444', desc: 'Critical onboarding friction' },
-    { label: 'Months 2–4', count: 38, pct: 28, color: '#f97316', desc: 'Early habit formation' },
-    { label: 'Months 5–8', count: 26, pct: 19, color: '#eab308', desc: 'Core loyal subscribers' },
-    { label: 'Months 9–12', count: 16, pct: 12, color: '#3b82f6', desc: 'Annual turnover' },
-    { label: 'Months 13+', count: 10, pct: 6, color: '#10b981', desc: 'Long-term brand advocates' },
+    { label: 'Month 1 (1st Renewal)', count: m1Count, pct: Math.round((m1Count / totalVoluntary) * 100), color: '#ef4444', desc: 'Critical onboarding friction' },
+    { label: 'Months 2–4', count: m24Count, pct: Math.round((m24Count / totalVoluntary) * 100), color: '#f97316', desc: 'Early habit formation' },
+    { label: 'Months 5–8', count: m58Count, pct: Math.round((m58Count / totalVoluntary) * 100), color: '#eab308', desc: 'Core loyal subscribers' },
+    { label: 'Months 9–12', count: m912Count, pct: Math.round((m912Count / totalVoluntary) * 100), color: '#3b82f6', desc: 'Annual turnover' },
+    { label: 'Months 13+', count: m13Count, pct: Math.round((m13Count / totalVoluntary) * 100), color: '#10b981', desc: 'Long-term brand advocates' },
   ];
 
-  // 5. Saudi Salary Day Dunning Recovery (27th-29th impact)
+  // 5. Saudi Salary Day Dunning Recovery (Dynamic from failed renewals queue)
+  const failedList = productionData.failedRenewals || [];
+  const totalFailedAmount = failedList.reduce((sum: number, f: any) => sum + (f.amount || 0), 0);
+  const madaDeclines = failedList.filter((f: any) => f.reason.includes('51') || f.reason.includes('Insufficient')).length;
+  const expiredDeclines = failedList.filter((f: any) => f.reason.includes('54') || f.reason.includes('Expired')).length;
+
   const dunningPhases = [
-    { name: 'Day 1–3 (Soft Decline Retry)', successRate: 42, volume: 'SAR 14,200', note: 'Standard retry window' },
-    { name: 'Salary Day (27th–29th Alignment)', successRate: 88, volume: 'SAR 48,600', note: 'Saudi payroll credit date' },
-    { name: 'SMS Self-Serve Card Portal', successRate: 64, volume: 'SAR 22,800', note: 'Customer direct update' }
+    { 
+      name: 'Initial Mada Soft Decline', 
+      successRate: paymentHealth.firstTrySuccessRate, 
+      volume: formatSAR(totalFailedAmount), 
+      note: `${madaDeclines} Mada 51 Insufficient Funds in auto-retry queue` 
+    },
+    { 
+      name: 'Salary Day (27th–29th Alignment)', 
+      successRate: 88, 
+      volume: formatSAR(Math.round(totalFailedAmount * 0.88)), 
+      note: 'Scheduled retry aligned with Saudi monthly payroll date' 
+    },
+    { 
+      name: 'SMS Self-Serve Card Portal', 
+      successRate: 64, 
+      volume: formatSAR(Math.round(totalFailedAmount * 0.64)), 
+      note: `${expiredDeclines} Expired Cards (54) sent update payment link` 
+    }
   ];
+
+  // Dynamic sparklines from real trend points
+  const revSpark = trendPoints.length > 0 ? trendPoints.slice(-7).map(p => p.totalRevenue) : [mrr.closingMrr];
+  const mrrSpark = trendPoints.length > 0 ? trendPoints.slice(-7).map(p => p.mrr) : [mrr.closingMrr];
+  const memberSpark = [validMemberships.totalValid];
+
+  const maxWaterfall = Math.max(mrr.openingMrr, mrr.closingMrr, 1);
 
   return (
     <div className="space-y-6 lg:space-y-8 font-sans select-none">
@@ -202,10 +238,10 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
         <BaremetricsMetricTile
           label="Monthly Recurring Revenue"
           value={formatSAR(mrr.closingMrr)}
-          changePct={8.4}
-          sparklineData={[610, 625, 640, 652, 665, 674, 684]}
+          changePct={mrr.changePct}
+          sparklineData={mrrSpark}
           sparklineColor="#6366f1"
-          benchmarkText="Top 10%"
+          benchmarkText="Active Fleet"
           tooltip="Total predictable subscription revenue recognized monthly across active club members."
         />
 
@@ -213,8 +249,8 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
         <BaremetricsMetricTile
           label="Growth Quick Ratio"
           value={`${quickRatio}x`}
-          changePct={12.1}
-          sparklineData={[2.4, 2.7, 2.9, 3.1, 3.22]}
+          changePct={0}
+          sparklineData={[quickRatio]}
           sparklineColor="#10b981"
           benchmarkText="Benchmark: > 2.0x"
           tooltip="(New MRR + Reactivations) / Churned MRR. Indicates net compound velocity."
@@ -224,10 +260,10 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
         <BaremetricsMetricTile
           label="Average Revenue Per Member"
           value={formatSAR(arpm)}
-          changePct={4.2}
-          sparklineData={[198, 202, 205, 209, 213]}
+          changePct={0}
+          sparklineData={[arpm]}
           sparklineColor="#3b82f6"
-          benchmarkText="SAR 213 / mo"
+          benchmarkText={`SAR ${arpm} / mo`}
           tooltip="ARPU for memberships. Blended monthly yield per active car wash subscription."
         />
 
@@ -235,32 +271,32 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
         <BaremetricsMetricTile
           label="Lifetime Value (LTV)"
           value={formatSAR(ltv)}
-          changePct={6.8}
-          sparklineData={[2200, 2280, 2350, 2410, 2471]}
+          changePct={0}
+          sparklineData={[ltv]}
           sparklineColor="#10b981"
-          benchmarkText="11.6 Mos Tenure"
-          tooltip="ARPM (SAR 213) × 11.6 Months average active subscription lifespan."
+          benchmarkText={`${avgTenure} Mos Tenure`}
+          tooltip={`ARPM (${formatSAR(arpm)}) × ${avgTenure} Months average active subscription lifespan.`}
         />
 
         {/* 5. NET REVENUE CHURN */}
         <BaremetricsMetricTile
           label="Net Revenue Churn"
           value={`${netRevenueChurnPct}%`}
-          changePct={-0.4}
-          isPositive={true}
-          sparklineData={[-1.2, -1.4, -1.6, -1.7, -1.8]}
+          changePct={0}
+          isPositive={false}
+          sparklineData={[netRevenueChurnPct]}
           sparklineColor="#10b981"
-          benchmarkText="Net Expansion"
-          tooltip="Negative churn means expansion revenue from upgrades outweighs cancellation losses."
+          benchmarkText="Monthly Churn"
+          tooltip="Percentage of paying members terminating plan in the selected period."
         />
 
         {/* 6. USER CHURN RATE */}
         <BaremetricsMetricTile
           label="User Churn Rate"
           value={`${churnRate.totalRatePct}%`}
-          changePct={-0.3}
-          isPositive={true}
-          sparklineData={[4.8, 4.6, 4.4, 4.2, 4.12]}
+          changePct={0}
+          isPositive={churnRate.totalRatePct < 5}
+          sparklineData={[churnRate.totalRatePct]}
           sparklineColor="#ef4444"
           benchmarkText="Target: < 5%"
           tooltip="Percentage of paying members terminating plan in the last 30 days."
@@ -269,11 +305,11 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
         {/* 7. MRR GROWTH VELOCITY */}
         <BaremetricsMetricTile
           label="Net MRR Added"
-          value={`+${formatSAR(mrr.netMovement)}`}
-          changePct={15.3}
-          sparklineData={[28, 34, 42, 48, 54]}
+          value={`${mrr.netMovement >= 0 ? '+' : ''}${formatSAR(mrr.netMovement)}`}
+          changePct={mrr.changePct}
+          sparklineData={mrrSpark}
           sparklineColor="#10b981"
-          benchmarkText="+SAR 54k / mo"
+          benchmarkText={`${formatSAR(mrr.closingMrr)} MRR`}
           tooltip="New membership MRR minus churned subscription MRR in selected period."
         />
 
@@ -281,10 +317,10 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
         <BaremetricsMetricTile
           label="Active Paid Members"
           value={validMemberships.totalValid.toLocaleString()}
-          changePct={6.2}
-          sparklineData={[2920, 2980, 3050, 3120, 3207]}
+          changePct={validMemberships.changePct}
+          sparklineData={memberSpark}
           sparklineColor="#3b82f6"
-          benchmarkText="Fleet Capacity: 4.5k"
+          benchmarkText="Al Kharj HQ"
           tooltip="Number of unique vehicles entitled to unlimited tunnel RFID/camera wash access."
         />
 
@@ -302,11 +338,15 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
                   MRR Movement Breakdown (Waterfall)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Exact financial components driving your SAR 684,200 MRR base
+                  Exact financial components driving your {formatSAR(mrr.closingMrr)} MRR base
                 </p>
               </div>
-              <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                +SAR 54,200 Net Growth
+              <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
+                mrr.netMovement >= 0 
+                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200' 
+                  : 'text-rose-700 bg-rose-50 border-rose-200'
+              }`}>
+                {mrr.netMovement >= 0 ? '+' : ''}{formatSAR(mrr.netMovement)} Net Growth
               </span>
             </div>
 
@@ -317,10 +357,10 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
               <div>
                 <div className="flex items-center justify-between text-xs font-semibold mb-1">
                   <span className="text-slate-700">Opening MRR (Start of Period)</span>
-                  <span className="font-mono text-slate-900 font-bold">SAR 630,000</span>
+                  <span className="font-mono text-slate-900 font-bold">{formatSAR(mrr.openingMrr)}</span>
                 </div>
                 <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-slate-400 rounded-full" style={{ width: '92%' }}></div>
+                  <div className="h-full bg-slate-400 rounded-full" style={{ width: `${Math.min(100, Math.round((mrr.openingMrr / maxWaterfall) * 100))}%` }}></div>
                 </div>
               </div>
 
@@ -329,12 +369,12 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
                 <div className="flex items-center justify-between text-xs font-semibold mb-1">
                   <span className="text-emerald-700 flex items-center gap-1">
                     <ArrowUpRight className="w-3.5 h-3.5" />
-                    <span>New Subscription MRR (+230 Members)</span>
+                    <span>New Subscription MRR (+{salesBreakdown.newCount} Members)</span>
                   </span>
-                  <span className="font-mono text-emerald-800 font-bold">+SAR 49,400</span>
+                  <span className="font-mono text-emerald-800 font-bold">+{formatSAR(mrr.newMrr)}</span>
                 </div>
                 <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '38%' }}></div>
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${mrr.newMrr > 0 ? Math.max(8, Math.round((mrr.newMrr / maxWaterfall) * 100)) : 0}%` }}></div>
                 </div>
               </div>
 
@@ -343,12 +383,12 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
                 <div className="flex items-center justify-between text-xs font-semibold mb-1">
                   <span className="text-blue-700 flex items-center gap-1">
                     <ArrowUpRight className="w-3.5 h-3.5" />
-                    <span>Expansion / Plan Upgrades (Fresh &rarr; Nano)</span>
+                    <span>Expansion / Plan Upgrades (+{salesBreakdown.upgradeCount} Upgrades)</span>
                   </span>
-                  <span className="font-mono text-blue-800 font-bold">+SAR 14,800</span>
+                  <span className="font-mono text-blue-800 font-bold">+{formatSAR(mrr.expansionMrr)}</span>
                 </div>
                 <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: '18%' }}></div>
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${mrr.expansionMrr > 0 ? Math.max(6, Math.round((mrr.expansionMrr / maxWaterfall) * 100)) : 0}%` }}></div>
                 </div>
               </div>
 
@@ -357,12 +397,12 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
                 <div className="flex items-center justify-between text-xs font-semibold mb-1">
                   <span className="text-teal-700 flex items-center gap-1">
                     <ArrowUpRight className="w-3.5 h-3.5" />
-                    <span>Reactivation & Re-Ups (+32 Win-backs)</span>
+                    <span>Reactivation & Re-Ups (+{salesBreakdown.reactivatedCount} Win-backs)</span>
                   </span>
-                  <span className="font-mono text-teal-800 font-bold">+SAR 7,200</span>
+                  <span className="font-mono text-teal-800 font-bold">+{formatSAR(mrr.reactivationMrr)}</span>
                 </div>
                 <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-teal-500 rounded-full" style={{ width: '10%' }}></div>
+                  <div className="h-full bg-teal-500 rounded-full" style={{ width: `${mrr.reactivationMrr > 0 ? Math.max(4, Math.round((mrr.reactivationMrr / maxWaterfall) * 100)) : 0}%` }}></div>
                 </div>
               </div>
 
@@ -373,10 +413,10 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
                     <ArrowDownRight className="w-3.5 h-3.5" />
                     <span>Churned MRR (Cancellations + Card Failures)</span>
                   </span>
-                  <span className="font-mono text-rose-800 font-bold">-SAR 17,200</span>
+                  <span className="font-mono text-rose-800 font-bold">-{formatSAR(mrr.churnedMrr + mrr.failedPaymentMrr)}</span>
                 </div>
                 <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-rose-500 rounded-full" style={{ width: '16%' }}></div>
+                  <div className="h-full bg-rose-500 rounded-full" style={{ width: `${Math.min(100, Math.max(4, Math.round(((mrr.churnedMrr + mrr.failedPaymentMrr) / maxWaterfall) * 100)))}%` }}></div>
                 </div>
               </div>
 
@@ -384,7 +424,7 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
           </div>
 
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Closing MRR: <strong className="text-slate-900 text-sm font-bold font-mono">SAR 684,200</strong></span>
+            <span>Closing MRR: <strong className="text-slate-900 text-sm font-bold font-mono">{formatSAR(mrr.closingMrr)}</strong></span>
             <span className="text-indigo-700 font-semibold">Baremetrics Waterfall Audited &check;</span>
           </div>
         </div>
@@ -402,7 +442,7 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
                 </p>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 bg-rose-50 text-rose-800 rounded border border-rose-200">
-                138 Total Churn
+                {churnAnalysis.totalChurn} Total Churn
               </span>
             </div>
 
@@ -418,13 +458,13 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
                   <div className="w-full h-2 bg-slate-200 rounded-full mt-2 overflow-hidden">
                     <div 
                       className="h-full rounded-full transition-all duration-500" 
-                      style={{ width: `${c.pct}%`, backgroundColor: c.color }}
+                      style={{ width: `${Math.max(c.pct, c.count > 0 ? 8 : 0)}%`, backgroundColor: c.color }}
                     ></div>
                   </div>
                   <div className="text-[10px] text-slate-500 mt-1.5 flex items-center justify-between">
                     <span>{c.desc}</span>
-                    {idx === 0 && (
-                      <span className="font-bold text-rose-600">35% leave in Month 1</span>
+                    {idx === 0 && c.count > 0 && (
+                      <span className="font-bold text-rose-600">{c.pct}% leave in Month 1</span>
                     )}
                   </div>
                 </div>
@@ -433,7 +473,7 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>Average Member Tenure: <strong className="text-slate-800">11.6 Months</strong></span>
+            <span>Average Member Tenure: <strong className="text-slate-800">{avgTenure} Months</strong></span>
             <span className="text-indigo-700 font-semibold">Target: 14+ Mos &rarr;</span>
           </div>
         </div>
@@ -455,8 +495,8 @@ export const BaremetricsDashboard: React.FC<BaremetricsDashboardProps> = ({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200">
-              SAR 85,600 Total Saved MRR
+            <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200 font-mono">
+              {formatSAR(Math.round(totalFailedAmount * 0.88))} Projected Recoverable MRR
             </span>
           </div>
         </div>

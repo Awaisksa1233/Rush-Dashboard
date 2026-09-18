@@ -16,7 +16,7 @@ export interface PackageDefinition {
   tag: string;
 }
 
-export type LocationId = 'all' | 'loc_riyadh_north' | 'loc_riyadh_olaya' | 'loc_jeddah_corniche' | 'loc_dammam_corniche';
+export type LocationId = 'all' | 'loc_alkharj';
 
 export interface LocationDefinition {
   id: LocationId;
@@ -77,6 +77,15 @@ export interface ExecutiveMetrics {
     involuntaryChurnCount: number;
     changePct: number;
   };
+  heroAverages?: {
+    recurringInflowPct: number;
+    singleInflowPct: number;
+    avgTotalWash: number;
+    avgMemberSale: number;
+    avgMemberWash: number;
+    avgSingleWash: number;
+    monthlyMrr: number;
+  };
 }
 
 export interface RevenueSeriesPoint {
@@ -122,6 +131,7 @@ export interface ChurnAnalysis {
   involuntaryChurn: number;
   churnRatePct: number;
   rateChangePct: number;
+  averageTenureMonths?: number;
   voluntaryReasons: {
     reason: string;
     count: number;
@@ -285,5 +295,201 @@ export interface SalesTeamAnalytics {
   topPerformer: SalesRepPerformance;
   reps: SalesRepPerformance[];
   branchBreakdown: BranchTeamComparison[];
+}
+
+// ============================================================================
+// RUSH MEMBERSHIP CANCELLATION SAVE ENGINE SPECIFICATION TYPES
+// ============================================================================
+
+export type CancellationReason =
+  | 'price_budget'
+  | 'not_using_enough'
+  | 'travel_temporary_absence'
+  | 'quality_complaint'
+  | 'moved_or_sold_vehicle'
+  | 'other';
+
+export type UsageSegment = 'inactive' | 'light' | 'healthy' | 'high' | 'heavy';
+export type UsageTrend = 'rising' | 'stable' | 'falling';
+export type AprBand = 'low' | 'core' | 'high';
+export type SaveOfferType = 'percentage' | 'freeze' | 'plan_switch' | 'service_credit';
+
+export interface EligibilityResult {
+  eligibleForAutomatedDiscount: boolean;
+  blockingReasons: string[];
+  monitoringFlags: string[];
+  evaluatedAt: string;
+  guardDetails: {
+    twoRenewalsPassed: boolean;
+    cooldown180dPassed: boolean;
+    noActivePromoOrFreeze: boolean;
+    noUnresolvedDispute: boolean;
+    noCancelWithin90dOfSave: boolean;
+    activeRecurringArrangement: boolean;
+    noFraudFlag: boolean;
+  };
+}
+
+export interface RetentionOffer {
+  code: string;
+  title: string;
+  arabicTitle: string;
+  description: string;
+  badgeText?: string;
+  packageId: string;
+  packageName: string;
+  discountType: 'percentage' | 'freeze';
+  discountValue: number;
+  billingCycles: number;
+  normalPrice: number;
+  discountedPrice: number;
+  estimatedSavingsSar: number;
+  preservesMrrSar: number;
+  nextRenewalDate: string;
+  returnToNormalDate: string;
+  acceptedAt?: string;
+  expiresAt: string;
+}
+
+export interface CancellationSession {
+  id: string;
+  membershipId: string;
+  customerId: string;
+  customerName: string;
+  phone: string;
+  vehiclePlate: string;
+  packageId: string;
+  packageName: string;
+  normalPrice: number;
+  initiatedAt: string;
+  channel: 'portal' | 'pos' | 'staff';
+  customerApr: number;
+  aprBand: AprBand;
+  usageLast30Days: number;
+  usagePrevious30Days: number;
+  usageSegment: UsageSegment;
+  usageTrend: UsageTrend;
+  totalWashesSinceJoining: number;
+  monthsSinceJoining: number;
+  totalRevenueCollected: number;
+  realRetailSavingsSar: number;
+  singleWashPrice?: number;
+  lastPaidMembershipPrice?: number;
+  retailWashValueLastPeriod?: number;
+  lastPeriodSavingsSar?: number;
+  isSavingGreaterThanMembership?: boolean;
+  reason?: CancellationReason;
+  freeText?: string;
+  eligibility: EligibilityResult;
+  offer?: RetentionOffer;
+  outcome: 'started' | 'offer_accepted' | 'offer_declined' | 'cancelled' | 'manager_recovery';
+  staffOverride?: {
+    overrideByUserId: string;
+    overrideReason: string;
+    customDiscountPct: number;
+    cycles: number;
+    approvedAt: string;
+  };
+}
+
+export interface QualityRecoveryTicket {
+  id: string;
+  sessionId?: string;
+  membershipId: string;
+  customerName: string;
+  phone: string;
+  vehiclePlate: string;
+  branchId: string;
+  branchName: string;
+  lane?: string;
+  washDateTime: string;
+  issueCategory: 'spotting_film' | 'dryer_performance' | 'tunnel_equipment' | 'staff_service' | 'other';
+  description: string;
+  attachmentsCount: number;
+  status: 'open' | 'callback_completed' | 'resolved_retained' | 'resolved_cancelled';
+  callbackDueTime: string;
+  createdAt: string;
+  assignedManager?: string;
+  managerNotes?: string;
+  documentedRemedy?: 'rewash' | 'service_credit' | 'approved_discount' | 'none';
+  remedyDetails?: string;
+  memberDecision?: 'stay' | 'cancel';
+  resolvedAt?: string;
+}
+
+export interface RetentionOfferHistory {
+  id: string;
+  membershipId: string;
+  customerId: string;
+  customerName: string;
+  phone: string;
+  plate: string;
+  offerCode: string;
+  discountType: 'percentage' | 'freeze';
+  discountValue: number;
+  billingCycles: number;
+  cyclesCompleted: number;
+  normalPrice: number;
+  discountedPrice: number;
+  acceptedAt: string;
+  expiresAt: string;
+  status: 'active' | 'completed' | 'cancelled' | 'durably_retained';
+  postSaveMilestones: {
+    day0NoticeSent: boolean;
+    day7UsageReminderSent: boolean;
+    day21FinalReminderSent: boolean;
+    dayMinus14NoticeSent: boolean;
+    firstNormalRenewalSuccess: boolean;
+  };
+}
+
+export interface AdminRetentionConfig {
+  aprThresholds: {
+    lowMax: number;   // default 130
+    coreMax: number;  // default 199
+    highMin: number;  // default 200
+  };
+  discountTemplates: {
+    SAVE_HEALTHY_CORE: { discountPct: number; cycles: number; active: boolean };
+    SAVE_HEALTHY_HIGH: { discountPct: number; cycles: number; active: boolean };
+    SAVE_HIGH_HIGH_APR: { discountPct: number; cycles: number; active: boolean };
+  };
+  freezePolicy: {
+    defaultDays: number;
+    maxAnnualDays: number;
+  };
+  guardrails: {
+    minFullPriceRenewals: number;
+    cooldownDays: number;
+    postSaveCancelLockDays: number;
+  };
+}
+
+export interface SpecificationMetricsSummary {
+  totalCancellationAttempts: number;
+  eligibleForDiscountCount: number;
+  eligibilityRatePct: number;
+  offerAcceptedCount: number;
+  offerAcceptanceRatePct: number;
+  cancellationCompletedCount: number;
+  cancellationCompletionRatePct: number;
+  retainedMrrAtDiscountedPrice: number;
+  discountCostTotal: number;
+  firstNormalPriceRenewalRatePct: number;
+  durableSave90DayRatePct: number;
+  repeatCancelsWithin90dCount: number;
+  qualityTicketsCount: number;
+  qualityTicketsResolvedCount: number;
+  qualityResolutionRetentionRatePct: number;
+  managerExceptionsCount: number;
+  monitoringAbuseFlagsCount: number;
+  aprBandBreakdown: { band: AprBand; label: string; count: number; pct: number; mrr: number }[];
+  usageSegmentBreakdown: { segment: UsageSegment; label: string; count: number; pct: number; washesAvg: number }[];
+  reasonBreakdown: { reason: CancellationReason; label: string; arabicLabel: string; count: number; pct: number; savedPct: number }[];
+  offerCodeBreakdown: { code: string; label: string; acceptedCount: number; retainedMrr: number; cost: number }[];
+  recentSessions: CancellationSession[];
+  recentQualityTickets: QualityRecoveryTicket[];
+  recentOfferHistories: RetentionOfferHistory[];
+  adminConfig: AdminRetentionConfig;
 }
 

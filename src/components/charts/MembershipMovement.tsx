@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { MembershipWaterfallData } from '../../types/dashboard';
 import { ArrowRight, Plus, Minus, UserCheck, HelpCircle } from 'lucide-react';
 import { InfoTooltip } from '../common/Tooltip';
@@ -91,7 +91,7 @@ export const MembershipMovement: React.FC<MembershipMovementProps> = ({ data }) 
       <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
         <span>Acquisition: <strong className="text-emerald-700 font-semibold">+{newMembers + reactivated}</strong></span>
         <span>Churn Losses: <strong className="text-rose-600 font-semibold">-{voluntaryChurn + involuntaryChurn}</strong></span>
-        <span>Retention Efficiency: <strong className="text-slate-800 font-semibold">95.8%</strong></span>
+        <span>Retention Efficiency: <strong className="text-slate-800 font-semibold">{opening > 0 ? ((1 - (voluntaryChurn + involuntaryChurn) / opening) * 100).toFixed(1) : '100.0'}%</strong></span>
       </div>
     </div>
   );

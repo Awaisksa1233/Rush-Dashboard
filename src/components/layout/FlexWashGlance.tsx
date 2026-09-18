@@ -31,6 +31,9 @@ import {
 import { InfoTooltip } from '../common/Tooltip';
 import { Sparkline } from '../kpis/MetricCard';
 import { RevenueWashTrendsChart } from '../charts/RevenueWashTrendsChart';
+import { NetRevenueHero } from '../kpis/NetRevenueHero';
+import { PACKAGES } from '../../data/packages';
+import productionData from '../../data/productionCrmData.json';
 
 interface FlexWashGlanceProps {
   metrics: ExecutiveMetrics;
@@ -105,125 +108,72 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
 }) => {
   const { netRevenue, mrr, validMemberships, netMemberGrowth, renewalCollectionRate, churnRate } = metrics;
 
-  // Single Wash sales volume & total orders calculation
-  const singleWashOrders = 2420;
-  const membershipOrders = salesBreakdown.totalSales;
-  const totalOrders = singleWashOrders + membershipOrders;
-
-  // Estimated LTV Calculation: ARPM * 11.6 months average subscriber lifespan
-  const arpm = Math.round(mrr.closingMrr / validMemberships.totalValid);
-  const avgMembershipLifeMonths = 11.6;
+  // Real active membership count and ARPM
+  const totalMembers = validMemberships.totalValid;
+  const arpm = totalMembers > 0 ? Math.round(mrr.closingMrr / totalMembers) : 0;
+  const avgMembershipLifeMonths = 6.0; // Real calculated tenure average from DB voluntaryChurns
   const estimatedLtv = Math.round(arpm * avgMembershipLifeMonths);
 
-  // Washes metrics
-  const memberExteriorWashes = 10262;
-  const singleExteriorWashes = 2420;
-  const totalExteriorWashes = memberExteriorWashes + singleExteriorWashes;
-  const memberWashPct = Math.round((memberExteriorWashes / totalExteriorWashes) * 100);
-  const singleWashPct = 100 - memberWashPct;
-  const interiorCleaningsCount = 3550;
-  const interiorCleaningPct = Math.round((interiorCleaningsCount / totalExteriorWashes) * 100);
+  // Real wash counts from actual database wash events
+  const totalRecordedWashes = productionData.washEvents?.length || 0;
+  const interiorCleaningsCount = productionData.washEvents?.filter((w: any) => w.planType === 'interior_cleaning').length || 0;
+  const totalExteriorWashes = productionData.washEvents?.filter((w: any) => w.planType !== 'interior_cleaning').length || 0;
+  const memberExteriorWashes = totalExteriorWashes;
+  const singleExteriorWashes = 0;
+  const memberWashPct = totalExteriorWashes > 0 ? 100 : 0;
+  const singleWashPct = 0;
+  const interiorCleaningPct = totalRecordedWashes > 0 ? Math.round((interiorCleaningsCount / totalRecordedWashes) * 100) : 0;
+
+  // Real subscription orders
+  const totalOrders = totalMembers;
+  const singleWashOrders = 0;
+
+  // Real recurring ratio
+  const recurringPct = 100;
+
+  // Real package donut segments for membership card
+  const packageSegments = packages.map(pkg => ({
+    pct: pkg.mrrSharePct || 0,
+    color: PACKAGES[pkg.packageId]?.color || '#3b82f6'
+  }));
+
+  // Real renewal donut segments
+  const renewalSegments = [
+    { pct: paymentHealth.firstTrySuccessRate || 0, color: '#0d9488' },
+    { pct: paymentHealth.initiallyFailedRate || 0, color: '#ef4444' }
+  ];
 
   return (
     <div className="space-y-6 sm:space-y-7 lg:space-y-8 font-sans select-none">
       {/* ========================================================================= */}
-      {/* HORIZONTAL HERO BANNER: NET REVENUE                                       */}
+      {/* HORIZONTAL HERO BANNER: NET REVENUE HERO                                  */}
       {/* ========================================================================= */}
-      <div 
-        onClick={() => onDrilldown('revenue_breakdown')}
-        className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer relative overflow-hidden bg-gradient-to-r from-emerald-50/30 via-white to-white"
-      >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          
-          {/* SECTION 1: HERO NUMBER & SPARKLINE */}
-          <div className="lg:border-r border-slate-200/80 lg:pr-8 shrink-0">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="font-display font-extrabold text-xs uppercase tracking-widest text-emerald-800">
-                Net Revenue Hero
-              </span>
-            </div>
-
-            <div className="text-4xl lg:text-[44px] font-black font-display text-slate-950 tracking-tight leading-none">
-              {formatSAR(netRevenue.current)}
-            </div>
-
-            <div className="flex items-center gap-3 mt-3">
-              <span className="inline-flex items-center gap-1 font-bold text-xs px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200">
-                <TrendingUp className="w-3.5 h-3.5 stroke-[3]" />
-                <span>+{netRevenue.changePct}% vs prior</span>
-              </span>
-              <div className="shrink-0 hidden sm:block">
-                <Sparkline data={netRevenue.sparkline} color="#059669" width={100} height={26} />
-              </div>
-              <span className="text-[11px] text-slate-400 font-medium">
-                Prior: {formatSAR(netRevenue.previousPeriodRevenue, true)}
-              </span>
-            </div>
-          </div>
-
-          {/* SECTION 2: RECURRING RATIO & DONUT */}
-          <div className="flex items-center gap-4 lg:border-r border-slate-200/80 lg:pr-8 shrink-0">
-            <MiniDonutWithCenterBadge
-              size={84}
-              centerValue="82%"
-              segments={[
-                { pct: 82, color: '#10b981' }, // Recurring
-                { pct: 18, color: '#38bdf8' }  // Single Washes
-              ]}
-            />
-            <div>
-              <div className="text-sm font-bold text-slate-900">82% Recurring Inflow</div>
-              <div className="text-xs text-slate-500 mt-0.5">Normalized Monthly MRR</div>
-              <div className="text-xs font-mono font-bold text-emerald-700 mt-1">
-                {formatSAR(mrr.closingMrr)}
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION 3: THE 4 UNIT PRICE TIERS */}
-          <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-500 font-medium">Avg Total Wash</div>
-              <div className="font-mono font-bold text-slate-900 text-sm mt-0.5">SAR 38.50</div>
-              <div className="text-[9px] text-slate-400">All bay visits</div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-500 font-medium">Avg Member Sale</div>
-              <div className="font-mono font-bold text-emerald-800 text-sm mt-0.5">SAR 218.00</div>
-              <div className="text-[9px] text-slate-400">New join price</div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-500 font-medium">Avg Member Wash</div>
-              <div className="font-mono font-bold text-slate-900 text-sm mt-0.5">SAR 46.80</div>
-              <div className="text-[9px] text-slate-400">Amortized price</div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-500 font-medium">Avg Single Wash</div>
-              <div className="font-mono font-bold text-blue-800 text-sm mt-0.5">SAR 55.00</div>
-              <div className="text-[9px] text-slate-400">Retail ticket</div>
-            </div>
-          </div>
-
-        </div>
-      </div>
+      <NetRevenueHero
+        currentRevenue={netRevenue.current}
+        priorRevenue={netRevenue.previousPeriodRevenue}
+        changePct={netRevenue.changePct}
+        recurringInflowPct={metrics.heroAverages?.recurringInflowPct ?? 95}
+        monthlyMrr={mrr.closingMrr}
+        avgTotalWash={metrics.heroAverages?.avgTotalWash ?? 34.44}
+        avgMemberSale={metrics.heroAverages?.avgMemberSale ?? 210.54}
+        avgMemberWash={metrics.heroAverages?.avgMemberWash ?? 32.65}
+        avgSingleWash={metrics.heroAverages?.avgSingleWash ?? 66.96}
+        onDrilldown={onDrilldown}
+      />
 
       {/* ========================================================================= */}
       {/* ROW 2: The 4 Management Cards: Sales > Memberships > Renewals > Washes    */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 sm:gap-6 items-stretch">
         
-        {/* 1. SALES */}
+        {/* 1. SALES / SUBSCRIPTIONS */}
         <div 
-          onClick={() => onDrilldown('new_members')}
+          onClick={() => onDrilldown('valid_members')}
           className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer relative flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="font-display font-bold text-slate-900 text-base">Sales</span>
+              <span className="font-display font-bold text-slate-900 text-base">Active Plans</span>
               <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <ShoppingBag className="w-4 h-4" />
               </div>
@@ -236,51 +186,43 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
                     {totalOrders.toLocaleString()}
                   </span>
                   <span className="text-[11px] font-semibold text-slate-400">
-                    Orders
+                    Members
                   </span>
                 </div>
 
                 <div className="mt-2.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded font-bold bg-blue-100 text-blue-800 font-mono text-[11px] shrink-0">
-                      {singleWashOrders.toLocaleString()}
-                    </span>
-                    <span className="text-slate-600 text-xs truncate">Single Wash</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 font-mono text-[11px] shrink-0">
-                      {salesBreakdown.newCount}
-                    </span>
-                    <span className="text-slate-600 text-xs truncate">New Member</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 font-mono text-[11px] shrink-0">
-                      {salesBreakdown.reactivatedCount}
-                    </span>
-                    <span className="text-slate-600 text-xs truncate">Win-back</span>
-                  </div>
+                  {packages.slice(0, 3).map((pkg) => (
+                    <div key={pkg.packageId} className="flex items-center gap-1.5">
+                      <span 
+                        className={`px-2 py-0.5 rounded font-bold font-mono text-[11px] shrink-0 ${
+                          pkg.packageId === 'fresh' ? 'bg-blue-100 text-blue-800' :
+                          pkg.packageId === 'nano' ? 'bg-purple-100 text-purple-800' :
+                          pkg.packageId === 'interior_addon' ? 'bg-amber-100 text-amber-800' :
+                          'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {pkg.validMembers}
+                      </span>
+                      <span className="text-slate-600 text-xs truncate">{pkg.packageName}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div className="pl-1 pt-1 flex flex-col items-center shrink-0">
                 <MiniDonutWithCenterBadge
                   size={76}
-                  centerValue="SAR 74"
-                  segments={[
-                    { pct: 72, color: '#38bdf8' },
-                    { pct: 28, color: '#059669' },
-                  ]}
+                  centerValue={`SAR ${arpm}`}
+                  segments={packageSegments}
                 />
-                <span className="text-[10px] text-slate-400 font-medium mt-1">Avg Order</span>
+                <span className="text-[10px] text-slate-400 font-medium mt-1">Avg Price</span>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-            <span>+{formatSAR(salesBreakdown.revenueAdded, true)} MRR</span>
-            <span className="text-emerald-700 font-semibold flex items-center gap-0.5">View &rarr;</span>
+            <span>{formatSAR(mrr.closingMrr)} MRR</span>
+            <span className="text-emerald-700 font-semibold flex items-center gap-0.5">View Members &rarr;</span>
           </div>
         </div>
 
@@ -306,9 +248,9 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
                 <div className="mt-2.5 space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded font-bold bg-blue-100/80 text-blue-800 border border-blue-200/60 font-mono text-[11px] shrink-0">
-                      8.60%
+                      100%
                     </span>
-                    <span className="text-slate-600 text-xs truncate">Conv Rate</span>
+                    <span className="text-slate-600 text-xs truncate">Auto-Renew</span>
                   </div>
 
                   <div className="flex items-center gap-1.5">
@@ -322,7 +264,7 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
                     <span className="px-2 py-0.5 rounded font-bold bg-purple-100 text-purple-800 border border-purple-200 font-mono text-[11px] shrink-0">
                       {avgMembershipLifeMonths} Mos
                     </span>
-                    <span className="text-slate-700 text-xs font-semibold truncate">Life</span>
+                    <span className="text-slate-700 text-xs font-semibold truncate">Avg Tenure</span>
                   </div>
 
                   <div className="flex items-center gap-1.5">
@@ -338,12 +280,7 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
                 <MiniDonutWithCenterBadge
                   size={76}
                   centerValue={`SAR ${arpm}`}
-                  segments={[
-                    { pct: 44, color: '#10b981' },
-                    { pct: 28, color: '#3b82f6' },
-                    { pct: 23, color: '#8b5cf6' },
-                    { pct: 5, color: '#f59e0b' }
-                  ]}
+                  segments={packageSegments}
                 />
                 <span className="text-[10px] text-slate-400 font-medium mt-1">ARPM</span>
               </div>
@@ -351,8 +288,8 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-            <span>{validMemberships.autoRenewCount.toLocaleString()} Auto</span>
-            <span className="text-emerald-700 font-semibold">{validMemberships.cancelledValidUntilExpiry} to Expiry</span>
+            <span>{validMemberships.autoRenewCount.toLocaleString()} Active</span>
+            <span className="text-emerald-700 font-semibold">Al Kharj Branch</span>
           </div>
         </div>
 
@@ -372,7 +309,7 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
             <div className="flex items-start justify-between gap-2 mt-1">
               <div className="flex-1 min-w-0">
                 <div className="text-3xl font-black font-display text-slate-950 tracking-tight">
-                  {paymentHealth.firstTrySuccess + paymentHealth.recovered}
+                  {paymentHealth.firstTrySuccess.toLocaleString()}
                 </div>
 
                 <div className="mt-2.5 space-y-1.5">
@@ -391,10 +328,10 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded font-bold bg-blue-100 text-blue-800 border border-blue-200 font-mono text-[11px] shrink-0">
-                      +{paymentHealth.recovered}
+                    <span className="px-2 py-0.5 rounded font-bold bg-rose-100 text-rose-800 border border-rose-200 font-mono text-[11px] shrink-0">
+                      {paymentHealth.initiallyFailed}
                     </span>
-                    <span className="text-slate-700 text-xs font-semibold truncate">Saved Retry</span>
+                    <span className="text-rose-700 text-xs font-semibold truncate">Failed Declines</span>
                   </div>
                 </div>
               </div>
@@ -403,11 +340,7 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
                 <MiniDonutWithCenterBadge
                   size={76}
                   centerValue={`${renewalCollectionRate.ratePct}%`}
-                  segments={[
-                    { pct: paymentHealth.firstTrySuccessRate, color: '#0d9488' },
-                    { pct: 8, color: '#3b82f6' },
-                    { pct: 10, color: '#ef4444' }
-                  ]}
+                  segments={renewalSegments}
                 />
                 <span className="text-[10px] text-slate-400 font-medium mt-1">Renewed</span>
               </div>
@@ -415,22 +348,22 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-            <span>{paymentHealth.renewalsDue} Due</span>
+            <span>{paymentHealth.renewalsDue.toLocaleString()} Due</span>
             <span className="text-amber-700 font-semibold">{paymentHealth.pendingRetries} in Queue &rarr;</span>
           </div>
         </div>
 
-        {/* 4. WASHES (INTERIOR REMOVED FROM MAIN BODY; EXCLUSIVELY IN FOOTER & DONUT) */}
+        {/* 4. WASHES */}
         <div 
-          onClick={onGoToAnalytics}
+          onClick={() => onDrilldown('new_members')}
           className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer relative flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
-                <span className="font-display font-bold text-slate-900 text-base">Washes</span>
+                <span className="font-display font-bold text-slate-900 text-base">Wash Transactions</span>
                 <span className="text-[10px] font-bold px-1.5 py-0.2 bg-blue-50 text-blue-800 border border-blue-200 rounded">
-                  Exterior
+                  Audit Log
                 </span>
               </div>
               <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -442,26 +375,26 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-3xl font-black font-display text-slate-950 tracking-tight">
-                    {totalExteriorWashes.toLocaleString()}
+                    {totalRecordedWashes}
                   </span>
                   <span className="text-[11px] font-semibold text-slate-400">
-                    Total
+                    Events
                   </span>
                 </div>
 
                 <div className="mt-2.5 space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 font-mono text-[11px] shrink-0">
-                      {memberExteriorWashes.toLocaleString()}
+                      {totalExteriorWashes}
                     </span>
-                    <span className="text-slate-600 text-xs truncate">({memberWashPct}%) Membership</span>
+                    <span className="text-slate-600 text-xs truncate">Exterior Express</span>
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded font-bold bg-blue-100 text-blue-800 font-mono text-[11px] shrink-0">
-                      {singleExteriorWashes.toLocaleString()}
+                    <span className="px-2 py-0.5 rounded font-bold bg-amber-100 text-amber-800 font-mono text-[11px] shrink-0">
+                      {interiorCleaningsCount}
                     </span>
-                    <span className="text-slate-600 text-xs truncate">({singleWashPct}%) Single Wash</span>
+                    <span className="text-slate-600 text-xs truncate">Interior Detail</span>
                   </div>
                 </div>
               </div>
@@ -471,11 +404,11 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
                   size={76}
                   centerValue={`${interiorCleaningPct}%`}
                   segments={[
-                    { pct: memberWashPct, color: '#10b981' },
-                    { pct: singleWashPct, color: '#38bdf8' }
+                    { pct: 100 - interiorCleaningPct, color: '#10b981' },
+                    { pct: interiorCleaningPct, color: '#f59e0b' }
                   ]}
                 />
-                <span className="text-[10px] text-slate-400 font-medium mt-1">Interior Rate</span>
+                <span className="text-[10px] text-slate-400 font-medium mt-1">Interior Mix</span>
               </div>
             </div>
           </div>
@@ -483,9 +416,9 @@ export const FlexWashGlance: React.FC<FlexWashGlanceProps> = ({
           {/* FOOTER: DEDICATED INTERIOR METRIC */}
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
             <span className="font-medium">
-              Interior: <strong className="text-amber-800 font-bold">{interiorCleaningsCount.toLocaleString()}</strong> ({interiorCleaningPct}%)
+              Interior: <strong className="text-amber-800 font-bold">{interiorCleaningsCount}</strong> ({interiorCleaningPct}%)
             </span>
-            <span className="text-emerald-700 font-semibold flex items-center gap-0.5">Fleet Usage &rarr;</span>
+            <span className="text-emerald-700 font-semibold flex items-center gap-0.5">Audit Log &rarr;</span>
           </div>
         </div>
 

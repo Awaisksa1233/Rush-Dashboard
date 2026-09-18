@@ -1,8 +1,8 @@
-﻿import React from 'react';
+import React from 'react';
 import { CohortRetentionRow, ManagementValueMetrics } from '../../types/dashboard';
 import { formatSAR } from '../../services/analyticsService';
 import { InfoTooltip } from '../common/Tooltip';
-import { Sparkles, Calendar, Layers, ShieldCheck, Award } from 'lucide-react';
+import { Sparkles, Calendar, Layers, ShieldCheck, Award, Database } from 'lucide-react';
 
 interface RetentionAndValueProps {
   cohorts: CohortRetentionRow[];
@@ -10,7 +10,19 @@ interface RetentionAndValueProps {
 }
 
 export const RetentionAndValue: React.FC<RetentionAndValueProps> = ({ cohorts, managementValues }) => {
-  const { arpm, arpmChangePct, avgMembershipPrice, avgWashesPerMember, revenuePerWash, totalWashesInPeriod, estimatedLtv } = managementValues;
+  if (!cohorts || cohorts.length === 0) {
+    return (
+      <div className="glass-card rounded-xl p-5 border border-slate-200/90 shadow-2xs">
+        <div className="text-center py-12 text-slate-400">
+          <Database className="w-8 h-8 mx-auto mb-3 text-slate-300" />
+          <p className="text-sm font-medium">No cohort retention data available from database</p>
+          <p className="text-xs mt-1">Data will appear here when available in the database</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { arpm, arpmChangePct, avgMembershipPrice, avgWashesPerMember, revenuePerWash, totalWashesInPeriod, estimatedLtv } = managementValues || {};
 
   // Function to color cohort cell based on retention health
   const getCohortColor = (rate: number) => {
@@ -162,10 +174,10 @@ export const RetentionAndValue: React.FC<RetentionAndValueProps> = ({ cohorts, m
                 Estimated LTV
               </div>
               <div className="text-xl font-bold font-display text-emerald-900 mt-1">
-                {formatSAR(estimatedLtv || 2480)}
+                {formatSAR(estimatedLtv || (arpm ? Math.round(arpm * 6.0) : 0))}
               </div>
               <div className="text-[10px] text-emerald-700 font-medium mt-0.5">
-                Based on 11.5 mo tenure
+                Based on 6.0 mo avg tenure
               </div>
             </div>
           </div>
