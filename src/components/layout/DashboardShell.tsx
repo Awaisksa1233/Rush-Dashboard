@@ -58,9 +58,8 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
 
   const v1SubItems: DomainItem[] = [
     { id: 'sales', label: 'Sales & Growth', icon: ShoppingBag, badge: 'Key' },
-    { id: 'memberships', label: 'Membership & Churn', icon: UserCheck, count: validCount },
+    { id: 'memberships', label: 'Membership, Churn & Retention', icon: UserCheck, count: validCount },
     { id: 'team', label: 'Sales Team', icon: Users },
-    { id: 'retention', label: 'Retention & Saves', icon: Sparkles },
     { id: 'usage', label: 'Wash Usage', icon: Gauge },
   ];
 
@@ -179,18 +178,20 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
             Quick Action Queues
           </div>
 
-          <button
-            onClick={() => onDomainChange('retention')}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-[#cccccc] hover:bg-[#161616] transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Save Flows Center</span>
-            </div>
-            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 font-mono">
-              54% Saved
-            </span>
-          </button>
+          {!isV1 && (
+            <button
+              onClick={() => onDomainChange('retention')}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-[#cccccc] hover:bg-[#161616] transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Save Flows Center</span>
+              </div>
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 font-mono">
+                54% Saved
+              </span>
+            </button>
+          )}
 
           <button
             onClick={() => onDrilldown('failed_renewals')}

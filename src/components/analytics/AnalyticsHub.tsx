@@ -3,7 +3,6 @@ import {
   ShoppingBag, 
   UserCheck, 
   Users, 
-  Sparkles, 
   Gauge
 } from 'lucide-react';
 import { 
@@ -19,13 +18,11 @@ import { PackagePerformanceTable } from '../tables/PackagePerformanceTable';
 import { RetentionAndValue } from '../tables/CohortRetentionTable';
 import { WashUsageDashboard } from '../charts/WashUsageDashboard';
 import { SalesTeamPerformance } from '../sales/SalesTeamPerformance';
-import { RetentionDashboard } from '../cancellation/RetentionDashboard';
 
 export type AnalyticsSubTab = 
   | 'sales' 
   | 'memberships' 
   | 'team' 
-  | 'retention' 
   | 'usage';
 
 interface AnalyticsHubProps {
@@ -57,9 +54,8 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
 }) => {
   const subTabs: { id: AnalyticsSubTab; label: string; icon: React.FC<{ className?: string }>; badge?: string }[] = [
     { id: 'sales', label: 'Sales & Growth', icon: ShoppingBag, badge: 'Key Focus' },
-    { id: 'memberships', label: 'Membership & Churn', icon: UserCheck, badge: 'Retention' },
+    { id: 'memberships', label: 'Membership, Churn & Retention', icon: UserCheck, badge: 'Retention' },
     { id: 'team', label: 'Sales Team', icon: Users },
-    { id: 'retention', label: 'Save Offers & Retention', icon: Sparkles },
     { id: 'usage', label: 'Wash Usage & Fleet', icon: Gauge },
   ];
 
@@ -129,7 +125,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
         </div>
       )}
 
-      {/* 2. MEMBERSHIP & CHURN */}
+      {/* 2. MEMBERSHIP, CHURN & RETENTION */}
       {activeSubTab === 'memberships' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -137,7 +133,6 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
               <ChurnBreakdown
                 data={analytics.churnAnalysis}
                 onDrilldown={() => onDrilldown('voluntary_churn')}
-                onGoToRetention={() => onSubTabChange('retention')}
               />
             </div>
             <div className="lg:col-span-6">
@@ -165,14 +160,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
         </div>
       )}
 
-      {/* 5. RETENTION & SAVE FLOWS */}
-      {activeSubTab === 'retention' && (
-        <div className="space-y-6 animate-in fade-in duration-150">
-          <RetentionDashboard onOpenCancelModalForMember={onOpenCancelModalForMember} />
-        </div>
-      )}
-
-      {/* 6. WASH USAGE & FLEET */}
+      {/* 4. WASH USAGE & FLEET */}
       {activeSubTab === 'usage' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           <WashUsageDashboard
