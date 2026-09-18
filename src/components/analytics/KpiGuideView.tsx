@@ -111,9 +111,14 @@ export const KpiGuideView: React.FC = () => {
       color: 'text-rose-600 bg-rose-50 border-rose-200',
       kpis: [
         {
-          name: 'Lane Conversion Rate',
-          formula: '[Subscriptions Sold by Rep ÷ Customer Pitches Given] × 100%',
-          description: 'Express lane sales efficiency converting one-time retail drivers into recurring monthly members.'
+          name: 'New Member Conversion Rate',
+          formula: '[New Subscriptions Sold ÷ New Prospective Pitches] × 100%',
+          description: 'Express lane sales efficiency converting first-time prospective drivers into recurring members. Strictly restricted to new subscribers.'
+        },
+        {
+          name: 'Winbacks (≥2 Months Inactive)',
+          formula: '[Winbacks Closed ÷ Lapsed Inactive Pitches] × 100%',
+          description: 'Re-enrollment of past members whose subscription expired or cancelled ≥ 60 days ago. Quick renewals (< 60 days) are classified as reactivations.'
         },
         {
           name: 'Quota Attainment',
@@ -122,8 +127,8 @@ export const KpiGuideView: React.FC = () => {
         },
         {
           name: 'Sales Advisor Rank (Model A)',
-          formula: 'Score = 30% × Norm(Conv Rate) + 40% × Norm(Avg Memb Price) + 30% × Norm(Avg One-Time Price)',
-          description: '3-pillar normalized index (0–100) combining lane pitch conversion rate (30%), high-tier subscription sales price (40%), and premium one-off add-on upsells (30%).'
+          formula: 'Score = 30% × Norm(New Conv Rate) + 40% × Norm(Avg Memb Price) + 30% × Norm(Avg One-Time Price)',
+          description: '3-pillar normalized index (0–100) combining new member pitch conversion (30%), high-tier subscription sales price (40%), and premium one-off add-on upsells (30%). Winbacks are tracked separately as a core volume KPI.'
         }
       ]
     }

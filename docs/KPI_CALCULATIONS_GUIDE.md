@@ -117,10 +117,22 @@ A business-level summary of how Key Performance Indicators (KPIs) are defined an
 
 ## 5. Sales Team Performance
 
-### Lane Conversion Rate
-- **What It Measures**: Effectiveness of express lane reps in converting drive-up drivers into subscribers.
+### New Member Pitch Conversion Rate
+- **What It Measures**: Effectiveness of express lane advisors in converting first-time, prospective drive-up drivers into recurring subscribers. This metric is **strictly restricted to New Members** to provide an authentic measure of pipeline acquisition.
 - **Formula**:
-  $$\text{Conversion Rate (\%)} = \left( \frac{\text{Subscriptions Sold}}{\text{Customer Pitches Given}} \right) \times 100\%$$
+  $$\text{New Member Conversion Rate (\%)} = \left( \frac{\text{New Subscriptions Sold}}{\text{New Customer Pitches Given}} \right) \times 100\%$$
+
+---
+
+### Winbacks ($\ge 2$ Months / 60 Days Inactive)
+- **What It Measures**: Re-enrollment of former subscribers whose prior membership expired or was cancelled $\ge 2$ months (60 days) ago.
+- **Classification Rules**:
+  - **New Member**: First-time subscriber joining RUSH.
+  - **Quick Reactivation**: Former subscriber rejoining within $< 60$ days of lapse.
+  - **Winback**: Former subscriber re-enrolling after $\ge 60$ days of inactivity.
+- **Formula**:
+  $$\text{Winback Rate (\%)} = \left( \frac{\text{Winbacks Closed}}{\text{Lapsed Inactive Members Pitched}} \right) \times 100\%$$
+- **Incentive & Tracking**: Reps earn a dedicated 50% commission for qualifying $\ge 60$-day winbacks. Winbacks are tracked separately from new conversions to keep acquisition metrics clean while driving lapsed member recovery.
 
 ---
 
@@ -132,13 +144,15 @@ A business-level summary of how Key Performance Indicators (KPIs) are defined an
 ---
 
 ### Sales Advisor Leaderboard Rank (Model A)
-- **What It Measures**: Performance ranking of lane sales advisors combining closing efficiency, subscription tier quality, and one-off upsell value.
+- **What It Measures**: Performance ranking of lane sales advisors combining acquisition closing efficiency, subscription tier quality, and one-off upsell value.
 - **Formula**:
-  $$\text{Rank Score} = (0.30 \times \text{Norm}(CR)) + (0.40 \times \text{Norm}(P_{\text{membership}})) + (0.30 \times \text{Norm}(P_{\text{onetime}}))$$
+  $$\text{Rank Score} = (0.30 \times \text{Norm}(CR_{\text{new}})) + (0.40 \times \text{Norm}(P_{\text{membership}})) + (0.30 \times \text{Norm}(P_{\text{onetime}}))$$
 - **The 3 Pillars**:
-  1. **Conversion Rate ($CR$, 30% weight)**: % of lane vehicle pitches converted into paid deals.
+  1. **New Member Conversion Rate ($CR_{\text{new}}$, 30% weight)**: % of new prospective vehicle pitches converted into paid first-time subscriptions.
   2. **Avg Membership Sales Price ($P_{\text{membership}}$, 40% weight)**: Average price of subscription deals closed (rewards selling Nano Ceramic 169 SAR vs Fresh 69 SAR).
   3. **Avg One-Time Sales Price ($P_{\text{onetime}}$, 30% weight)**: Average price of single-wash orders & interior details sold.
 - **Normalization**: Each component is normalized on a $0 - 100$ scale across team min/max bounds:
   $$\text{Norm}(M) = \left( \frac{M - \min(M)}{\max(M) - \min(M)} \right) \times 100$$
+- **Note on Winbacks**: Winbacks ($\ge 60$ days lapsed) are tracked and rewarded as a high-value volume KPI and column on the leaderboard, keeping $CR_{\text{new}}$ isolated to new acquisition.
+
 

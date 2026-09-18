@@ -231,7 +231,8 @@ export interface RepDealRecord {
   packageTier: PackageTier;
   packageName: string;
   amount: number;
-  saleType: 'New' | 'Upgrade' | 'Reactivation';
+  saleType: 'New' | 'Upgrade' | 'Reactivation' | 'Winback';
+  daysInactive?: number;
   timestamp: string;
   commission: number;
   lane: string;
@@ -249,7 +250,9 @@ export interface SalesRepPerformance {
   avatarBg: string;
   // Volume
   totalSales: number;
-  newSales: number;
+  newSales: number;       // First-time new subscribers
+  winbacks: number;       // Members who expired or cancelled >= 60 days (2 months) ago
+  winbackRevenue: number; // Inflow from winbacks
   upgrades: number;
   reactivations: number;
   // Revenue & Quota
@@ -258,7 +261,9 @@ export interface SalesRepPerformance {
   quotaAttainmentPct: number;
   // Efficiency & Conversions
   pitchesCount: number;
-  conversionRatePct: number;
+  newPitchesCount: number; // Pitches to new prospective drivers
+  conversionRatePct: number; // Strictly New Member conversion rate: (newSales / newPitchesCount) * 100
+  winbackRatePct?: number;  // Winbacks closed / Lapsed drivers pitched
   avgTicketPrice: number;
   commissionEarned: number;
   // Package breakdown counts
@@ -295,6 +300,9 @@ export interface SalesTeamAnalytics {
   teamQuotaAttainmentPct: number;
   avgLaneConversionRate: number;
   totalCommissions: number;
+  totalNewMembers: number;
+  totalWinbacks: number;
+  avgWinbackRate?: number;
   topPerformer: SalesRepPerformance;
   reps: SalesRepPerformance[];
   branchBreakdown: BranchTeamComparison[];

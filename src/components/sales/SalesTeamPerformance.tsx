@@ -34,7 +34,7 @@ interface SalesTeamPerformanceProps {
   onLocationSelect?: (locId: string) => void;
 }
 
-type SortField = 'score' | 'conversion' | 'membership_price' | 'onetime_price' | 'revenue' | 'sales' | 'attainment';
+type SortField = 'score' | 'conversion' | 'winbacks' | 'membership_price' | 'onetime_price' | 'revenue' | 'sales' | 'attainment';
 
 export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
   data,
@@ -50,6 +50,9 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
     teamQuotaAttainmentPct = 0,
     avgLaneConversionRate = 0,
     totalCommissions = 0,
+    totalNewMembers = 0,
+    totalWinbacks = 0,
+    avgWinbackRate = 0,
     topPerformer,
     reps = [],
     branchBreakdown = []
@@ -71,6 +74,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
       "Package Name",
       "Amount (SAR)",
       "Sale Type",
+      "Days Inactive",
       "Timestamp",
       "Commission (SAR)",
       "Lane"
@@ -83,6 +87,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
       `"${(d.packageName || '').replace(/"/g, '""')}"`,
       d.amount,
       d.saleType,
+      d.daysInactive ? `${d.daysInactive}d` : '',
       `"${d.timestamp}"`,
       d.commission,
       `"${(d.lane || '').replace(/"/g, '""')}"`
@@ -120,6 +125,8 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
       switch (sortField) {
         case 'conversion':
           return b.conversionRatePct - a.conversionRatePct;
+        case 'winbacks':
+          return (b.winbacks || 0) - (a.winbacks || 0);
         case 'membership_price':
           return (b.avgMembershipPrice || 0) - (a.avgMembershipPrice || 0);
         case 'onetime_price':
@@ -250,40 +257,42 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
             </div>
           </div>
 
-          {/* Card 3: Lane Pitch Conversion Rate */}
+          {/* Card 3: New Member Pitch Conversion Rate */}
           <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80">
             <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-              <span className="font-semibold text-slate-700">Lane Pitch Conversion</span>
-              <TrendingUp className="w-4 h-4 text-teal-600" />
+              <span className="font-semibold text-slate-700">New Member Conversion</span>
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black font-display text-teal-700">
+              <span className="text-2xl font-black font-display text-emerald-700">
                 {avgLaneConversionRate}%
               </span>
-              <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-teal-100 text-teal-800 text-[10px]">
-                High Velocity
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px]">
+                Strictly New
               </span>
             </div>
             <div className="text-[11px] text-slate-500 mt-1">
-              Drive-in single wash drivers converted to recurring unlimited pass
+              New prospective drivers converted ({totalNewMembers.toLocaleString()} new subs)
             </div>
           </div>
 
-          {/* Card 4: Top Tier Upsell Mix */}
+          {/* Card 4: Winbacks Lapsed >= 60 Days */}
           <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80">
             <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-              <span className="font-semibold text-slate-700">Premium Tier Share</span>
-              <Sparkles className="w-4 h-4 text-purple-600" />
+              <span className="font-semibold text-slate-700">Winbacks (≥2 Months)</span>
+              <Sparkles className="w-4 h-4 text-teal-600" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black font-display text-purple-700">
-                67.2%
+              <span className="text-2xl font-black font-display text-teal-700">
+                +{totalWinbacks.toLocaleString()}
               </span>
-              <span className="text-xs text-slate-500">Shiny & Nano</span>
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-teal-100 text-teal-800 text-[10px]">
+                {avgWinbackRate}% winback rate
+              </span>
             </div>
             <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Avg Ticket: <strong className="text-slate-800 font-mono">SAR 232</strong></span>
-              <span className="text-purple-700 font-semibold font-mono">ASP +8.4%</span>
+              <span>Lapsed inactive &ge; 60 days</span>
+              <span className="text-teal-700 font-semibold font-mono">Re-enrolled</span>
             </div>
           </div>
         </div>
@@ -421,7 +430,8 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                 className="bg-white border border-slate-200 text-slate-800 font-semibold py-1.5 px-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c91e2f]/20 focus:border-[#c91e2f] cursor-pointer"
               >
                 <option value="score">Rank Score (Model A)</option>
-                <option value="conversion">Pitch Conversion % (30%)</option>
+                <option value="conversion">New Pitch Conversion % (30%)</option>
+                <option value="winbacks">Winbacks Closed (≥2mo)</option>
                 <option value="membership_price">Avg Membership Price (40%)</option>
                 <option value="onetime_price">Avg One-Time Price (30%)</option>
                 <option value="revenue">Revenue Generated</option>
@@ -461,11 +471,12 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
               Model A Ranking
             </span>
             <span className="text-xs text-slate-800">
-              Rank calculated by: <strong className="text-emerald-800">30% Pitch Conversion</strong> + <strong className="text-blue-800">40% Avg Membership Price</strong> + <strong className="text-amber-800">30% Avg One-Time Price</strong>
+              Rank calculated by: <strong className="text-emerald-800">30% New Member Conversion</strong> + <strong className="text-blue-800">40% Avg Membership Price</strong> + <strong className="text-amber-800">30% Avg One-Time Price</strong>
             </span>
           </div>
-          <div className="text-[11px] text-slate-500 font-mono">
-            Normalized 0–100 Benchmark Index
+          <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
+            <span className="px-1.5 py-0.5 rounded bg-teal-100 text-teal-800 font-semibold font-sans text-[10px]">Winbacks (≥60d) Isolated</span>
+            <span>Normalized 0–100 Index</span>
           </div>
         </div>
 
@@ -485,7 +496,8 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                   <th className="py-3 px-3 text-center w-12">Rank</th>
                   <th className="py-3 px-3 text-center">Score</th>
                   <th className="py-3 px-4">Sales Advisor</th>
-                  <th className="py-3 px-3 text-center">Conv. Rate (30%)</th>
+                  <th className="py-3 px-3 text-center">New Conv. (30%)</th>
+                  <th className="py-3 px-3 text-center">Winbacks (≥2mo)</th>
                   <th className="py-3 px-3 text-right">Avg Memb. (40%)</th>
                   <th className="py-3 px-3 text-right">Avg 1-Time (30%)</th>
                   <th className="py-3 px-4 text-right">Revenue</th>
@@ -551,13 +563,23 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                         </div>
                       </td>
 
-                      {/* Lane Conversion (30% weight) */}
+                      {/* Lane Conversion (30% weight - strictly New Members) */}
                       <td className="py-3 px-3 text-center font-mono">
                         <span className="font-bold text-emerald-800 text-xs">
                           {rep.conversionRatePct}%
                         </span>
                         <div className="text-[10px] text-slate-400">
-                          {rep.pitchesCount} pitches
+                          {rep.newSales ?? 0} new / {rep.newPitchesCount ?? rep.pitchesCount} pitches
+                        </div>
+                      </td>
+
+                      {/* Winbacks (≥2 months lapsed) */}
+                      <td className="py-3 px-3 text-center font-mono">
+                        <span className="inline-flex items-center gap-1 font-bold text-teal-800 text-xs px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200/80">
+                          +{rep.winbacks ?? 0}
+                        </span>
+                        <div className="text-[10px] text-slate-400">
+                          {rep.winbackRatePct ?? 0}% winback rate
                         </div>
                       </td>
 
@@ -690,19 +712,23 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                       <span className="capitalize">{rep.shift}</span>
                     </div>
 
-                    {/* Model A 3-Pillars Card Strip */}
-                    <div className="mt-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 flex items-center justify-between text-xs font-mono">
+                    {/* Model A 3-Pillars Card Strip + Winbacks */}
+                    <div className="mt-3 p-2 bg-slate-50 rounded-lg border border-slate-200/80 grid grid-cols-4 gap-1 text-center text-xs font-mono">
                       <div>
-                        <span className="text-slate-400 text-[9px] block uppercase">Conv (30%)</span>
-                        <strong className="text-emerald-700">{rep.conversionRatePct}%</strong>
+                        <span className="text-slate-400 text-[8.5px] block uppercase truncate">New (30%)</span>
+                        <strong className="text-emerald-700 text-[11px]">{rep.conversionRatePct}%</strong>
                       </div>
-                      <div className="border-l border-slate-200 pl-2">
-                        <span className="text-slate-400 text-[9px] block uppercase">Memb (40%)</span>
-                        <strong className="text-blue-700">SAR {rep.avgMembershipPrice?.toFixed(0) || '--'}</strong>
+                      <div className="border-l border-slate-200 pl-1">
+                        <span className="text-slate-400 text-[8.5px] block uppercase truncate">Winback</span>
+                        <strong className="text-teal-700 text-[11px]">+{rep.winbacks ?? 0}</strong>
                       </div>
-                      <div className="border-l border-slate-200 pl-2">
-                        <span className="text-slate-400 text-[9px] block uppercase">1-Time (30%)</span>
-                        <strong className="text-amber-700">SAR {rep.avgOneTimePrice?.toFixed(0) || '--'}</strong>
+                      <div className="border-l border-slate-200 pl-1">
+                        <span className="text-slate-400 text-[8.5px] block uppercase truncate">Memb (40%)</span>
+                        <strong className="text-blue-700 text-[11px]">SAR {rep.avgMembershipPrice?.toFixed(0) || '--'}</strong>
+                      </div>
+                      <div className="border-l border-slate-200 pl-1">
+                        <span className="text-slate-400 text-[8.5px] block uppercase truncate">1-Time (30%)</span>
+                        <strong className="text-amber-700 text-[11px]">SAR {rep.avgOneTimePrice?.toFixed(0) || '--'}</strong>
                       </div>
                     </div>
 
@@ -821,10 +847,16 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 text-center sm:text-right font-mono border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-4">
+                <div className="grid grid-cols-4 gap-2 text-center sm:text-right font-mono border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-4">
                   <div>
-                    <div className="text-[10px] text-slate-400">Conv. (30%)</div>
+                    <div className="text-[10px] text-slate-400">New Conv. (30%)</div>
                     <div className="font-bold text-emerald-400 text-xs mt-0.5">{activeRepModal.conversionRatePct}%</div>
+                    <div className="text-[9px] text-slate-500">{activeRepModal.newSales ?? 0} new</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400">Winbacks (≥2mo)</div>
+                    <div className="font-bold text-teal-400 text-xs mt-0.5">+{activeRepModal.winbacks ?? 0}</div>
+                    <div className="text-[9px] text-slate-500">{activeRepModal.winbackRatePct ?? 0}% rate</div>
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-400">Avg Memb (40%)</div>
@@ -867,7 +899,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                 <div className="space-y-2">
                   {activeRepModal.recentDeals.map((deal) => (
                     <div 
-                      key={deal.id}
+                      key={deal.id} 
                       className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3 text-xs"
                     >
                       <div className="flex items-start gap-2.5">
@@ -880,6 +912,16 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
                               {deal.vehiclePlate}
                             </span>
+                            {deal.saleType === 'Winback' && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-teal-100 text-teal-800 border border-teal-300">
+                                Winback ({deal.daysInactive ? `${deal.daysInactive}d` : '≥60d'})
+                              </span>
+                            )}
+                            {deal.saleType === 'New' && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                New Member
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
                             <span>{deal.lane}</span>
@@ -911,7 +953,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                 <div className="text-slate-600 space-y-0.5 text-[10.5px]">
                   <div>• <strong>Rates</strong>: Fresh: 2 SAR | Shiny: 6 SAR | Nano: 10 SAR | Interior Clean: 10 SAR</div>
                   <div>• <strong>Attribution</strong>: Earned on 1st full-price renewal. Upgrades split incremental difference (e.g. Fresh→Nano = 2 SAR orig + 8 SAR upg).</div>
-                  <div>• <strong>Winbacks</strong>: 50% commission for members inactive ≥ 60 days. Awarded strictly 1x per subscription lifecycle.</div>
+                  <div>• <strong>Winbacks (≥2 Months)</strong>: 50% commission for lapsed members inactive ≥ 60 days. New Pitch Conversion strictly tracks first-time subscribers.</div>
                 </div>
               </div>
             </div>
