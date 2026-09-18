@@ -49,7 +49,6 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
     teamQuotaTarget = 0,
     teamQuotaAttainmentPct = 0,
     avgLaneConversionRate = 0,
-    totalCommissions = 0,
     totalNewMembers = 0,
     totalWinbacks = 0,
     avgWinbackRate = 0,
@@ -76,7 +75,6 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
       "Sale Type",
       "Days Inactive",
       "Timestamp",
-      "Commission (SAR)",
       "Lane"
     ];
     const rows = (rep.recentDeals || []).map(d => [
@@ -89,7 +87,6 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
       d.saleType,
       d.daysInactive ? `${d.daysInactive}d` : '',
       `"${d.timestamp}"`,
-      d.commission,
       `"${(d.lane || '').replace(/"/g, '""')}"`
     ]);
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -97,7 +94,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${rep.name.toLowerCase().replace(/\s+/g, '_')}_commission_deals.csv`;
+    link.download = `${rep.name.toLowerCase().replace(/\s+/g, '_')}_deals.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -188,15 +185,15 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
               </span>
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Real-time drive-in conversion tracking, quota pacing, advisor commissions, and branch sales velocity.
+              Real-time drive-in conversion tracking, quota pacing, and branch sales velocity.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <div className="text-[10px] text-slate-400 uppercase font-semibold">Total Incentive Pool</div>
-              <div className="text-base font-bold font-mono text-emerald-700">
-                {formatSAR(totalCommissions)}
+              <div className="text-[10px] text-slate-400 uppercase font-semibold">Active Advisors</div>
+              <div className="text-base font-bold font-mono text-slate-900">
+                {reps.length} Reps
               </div>
             </div>
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
@@ -503,7 +500,6 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                   <th className="py-3 px-4 text-right">Revenue</th>
                   <th className="py-3 px-3 text-center min-w-[120px]">Quota Pacing</th>
                   <th className="py-3 px-3 min-w-[100px]">Package Mix</th>
-                  <th className="py-3 px-3 text-right">Commission</th>
                   <th className="py-3 px-2 text-center w-10">View</th>
                 </tr>
               </thead>
@@ -643,11 +639,6 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                         </div>
                       </td>
 
-                      {/* Commission */}
-                      <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700 text-xs">
-                        {formatSAR(rep.commissionEarned)}
-                      </td>
-
                       {/* Action */}
                       <td className="py-3 px-2 text-center">
                         <button
@@ -761,7 +752,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
 
                   {/* Footer */}
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-slate-500 font-mono">Commission: <strong className="text-emerald-700">{formatSAR(rep.commissionEarned)}</strong></span>
+                    <span className="text-slate-500 font-mono">Revenue: <strong className="text-emerald-700">{formatSAR(rep.revenueGenerated)}</strong></span>
                     <span className="text-slate-400 group-hover:text-[#c91e2f] font-semibold flex items-center gap-0.5 transition-colors">
                       Deals &rarr;
                     </span>
@@ -884,8 +875,8 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                   <div className="text-base font-bold text-blue-700 font-mono mt-0.5">{activeRepModal.quotaAttainmentPct}%</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="text-slate-400 text-[10px]">Commission</div>
-                  <div className="text-base font-bold text-purple-700 font-mono mt-0.5">{formatSAR(activeRepModal.commissionEarned)}</div>
+                  <div className="text-slate-400 text-[10px]">Winbacks (≥2mo)</div>
+                  <div className="text-base font-bold text-teal-700 font-mono mt-0.5">+{activeRepModal.winbacks ?? 0}</div>
                 </div>
               </div>
 
@@ -935,8 +926,8 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                         <div className="font-bold text-slate-900">
                           {formatSAR(deal.amount)}
                         </div>
-                        <div className="text-[10px] text-emerald-700 font-semibold">
-                          +SAR {deal.commission.toFixed(1)} comm.
+                        <div className="text-[10px] text-slate-400">
+                          {deal.packageName}
                         </div>
                       </div>
                     </div>
@@ -944,16 +935,16 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                 </div>
               </div>
 
-              {/* Calculation Rules Explainer */}
-              <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-100 text-[11px] text-blue-900 leading-relaxed">
-                <div className="font-bold text-blue-950 mb-1 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Subscription Renewal Commission Rules</span>
+              {/* Performance & Winback Rules Explainer */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-800 leading-relaxed">
+                <div className="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#c91e2f]" />
+                  <span>Advisor Performance & Winback Guidelines</span>
                 </div>
                 <div className="text-slate-600 space-y-0.5 text-[10.5px]">
-                  <div>• <strong>Rates</strong>: Fresh: 2 SAR | Shiny: 6 SAR | Nano: 10 SAR | Interior Clean: 10 SAR</div>
-                  <div>• <strong>Attribution</strong>: Earned on 1st full-price renewal. Upgrades split incremental difference (e.g. Fresh→Nano = 2 SAR orig + 8 SAR upg).</div>
-                  <div>• <strong>Winbacks (≥2 Months)</strong>: 50% commission for lapsed members inactive ≥ 60 days. New Pitch Conversion strictly tracks first-time subscribers.</div>
+                  <div>• <strong>New Member Conversion</strong>: Evaluated solely on first-time customer pitches. Excludes returning or winback accounts.</div>
+                  <div>• <strong>Winbacks (≥2 Months)</strong>: Drivers inactive ≥ 60 days who re-enroll in a subscription tier are tracked as high-priority recoveries.</div>
+                  <div>• <strong>Ticket Quality</strong>: Model A rewards advisors selling higher-tier Nano (169 SAR) & Shiny (129 SAR) plans.</div>
                 </div>
               </div>
             </div>

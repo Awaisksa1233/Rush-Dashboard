@@ -132,7 +132,7 @@ A business-level summary of how Key Performance Indicators (KPIs) are defined an
   - **Winback**: Former subscriber re-enrolling after $\ge 60$ days of inactivity.
 - **Formula**:
   $$\text{Winback Rate (\%)} = \left( \frac{\text{Winbacks Closed}}{\text{Lapsed Inactive Members Pitched}} \right) \times 100\%$$
-- **Incentive & Tracking**: Reps earn a dedicated 50% commission for qualifying $\ge 60$-day winbacks. Winbacks are tracked separately from new conversions to keep acquisition metrics clean while driving lapsed member recovery.
+- **Tracking & Strategic Value**: Winbacks are tracked separately from new conversions to keep acquisition metrics clean while driving lapsed member recovery.
 
 ---
 
