@@ -5,8 +5,7 @@ import {
   DollarSign, 
   Users, 
   Sparkles, 
-  Gauge, 
-  Layers
+  Gauge
 } from 'lucide-react';
 import { 
   Granularity, 
@@ -23,7 +22,6 @@ import { RevenueBreakdown } from '../charts/RevenueBreakdown';
 import { PackagePerformanceTable } from '../tables/PackagePerformanceTable';
 import { RetentionAndValue } from '../tables/CohortRetentionTable';
 import { WashUsageDashboard } from '../charts/WashUsageDashboard';
-import { BaremetricsDashboard } from '../charts/BaremetricsDashboard';
 import { SalesTeamPerformance } from '../sales/SalesTeamPerformance';
 import { RetentionDashboard } from '../cancellation/RetentionDashboard';
 
@@ -33,8 +31,7 @@ export type AnalyticsSubTab =
   | 'revenue' 
   | 'team' 
   | 'retention' 
-  | 'usage' 
-  | 'baremetrics';
+  | 'usage';
 
 interface AnalyticsHubProps {
   analytics: any;
@@ -70,7 +67,6 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
     { id: 'team', label: 'Sales Team', icon: Users },
     { id: 'retention', label: 'Save Offers & Retention', icon: Sparkles },
     { id: 'usage', label: 'Wash Usage & Fleet', icon: Gauge },
-    { id: 'baremetrics', label: 'Baremetrics SaaS', icon: Layers },
   ];
 
   return (
@@ -221,21 +217,6 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
           <PackagePerformanceTable
             rows={analytics.packageTable}
             onPackageClick={(pkgId) => onPackageFilter(pkgId as PackageTier)}
-          />
-        </div>
-      )}
-
-      {/* 7. BAREMETRICS SAAS */}
-      {activeSubTab === 'baremetrics' && (
-        <div className="space-y-6 animate-in fade-in duration-150">
-          <BaremetricsDashboard
-            metrics={analytics.executiveMetrics}
-            trendPoints={analytics.trendPoints}
-            salesBreakdown={analytics.salesBreakdown}
-            churnAnalysis={analytics.churnAnalysis}
-            paymentHealth={analytics.paymentHealth}
-            packages={analytics.packageTable}
-            onOpenDrilldown={(type) => onDrilldown(type)}
           />
         </div>
       )}

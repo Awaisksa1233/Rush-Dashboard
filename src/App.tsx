@@ -94,7 +94,7 @@ export function App() {
         setActiveDomain('analytics');
       }
       const sub = new URLSearchParams(window.location.search).get('sub');
-      if (sub && ['sales', 'memberships', 'revenue', 'team', 'retention', 'usage', 'baremetrics'].includes(sub)) {
+      if (sub && ['sales', 'memberships', 'revenue', 'team', 'retention', 'usage'].includes(sub)) {
         setAnalyticsSubTab(sub as AnalyticsSubTab);
       }
     }

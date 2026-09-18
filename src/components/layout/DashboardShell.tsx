@@ -63,7 +63,6 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
     { id: 'team', label: 'Sales Team', icon: Users },
     { id: 'retention', label: 'Retention & Saves', icon: Sparkles },
     { id: 'usage', label: 'Wash Usage', icon: Gauge },
-    { id: 'baremetrics', label: 'Baremetrics SaaS', icon: Layers },
   ];
 
   const v1Domains: DomainItem[] = [
