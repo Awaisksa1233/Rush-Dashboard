@@ -2,7 +2,6 @@ import React from 'react';
 import { 
   ShoppingBag, 
   UserCheck, 
-  DollarSign, 
   Users, 
   Sparkles, 
   Gauge
@@ -13,12 +12,9 @@ import {
   PackageTier, 
   ModalDrilldownType 
 } from '../../types/dashboard';
-import { RevenueTrendChart } from '../charts/RevenueTrendChart';
 import { MembershipMovement } from '../charts/MembershipMovement';
 import { MembershipSales } from '../charts/PackageMixChart';
 import { ChurnBreakdown } from '../charts/ChurnBreakdown';
-import { PaymentHealthFunnelComponent } from '../charts/PaymentHealthFunnel';
-import { RevenueBreakdown } from '../charts/RevenueBreakdown';
 import { PackagePerformanceTable } from '../tables/PackagePerformanceTable';
 import { RetentionAndValue } from '../tables/CohortRetentionTable';
 import { WashUsageDashboard } from '../charts/WashUsageDashboard';
@@ -28,7 +24,6 @@ import { RetentionDashboard } from '../cancellation/RetentionDashboard';
 export type AnalyticsSubTab = 
   | 'sales' 
   | 'memberships' 
-  | 'revenue' 
   | 'team' 
   | 'retention' 
   | 'usage';
@@ -63,7 +58,6 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
   const subTabs: { id: AnalyticsSubTab; label: string; icon: React.FC<{ className?: string }>; badge?: string }[] = [
     { id: 'sales', label: 'Sales & Growth', icon: ShoppingBag, badge: 'Key Focus' },
     { id: 'memberships', label: 'Membership & Churn', icon: UserCheck, badge: 'Retention' },
-    { id: 'revenue', label: 'Revenue & MRR', icon: DollarSign },
     { id: 'team', label: 'Sales Team', icon: Users },
     { id: 'retention', label: 'Save Offers & Retention', icon: Sparkles },
     { id: 'usage', label: 'Wash Usage & Fleet', icon: Gauge },
@@ -160,35 +154,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
         </div>
       )}
 
-      {/* 3. REVENUE & MRR */}
-      {activeSubTab === 'revenue' && (
-        <div className="space-y-6 animate-in fade-in duration-150">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-7">
-              <RevenueTrendChart
-                data={analytics.trendPoints}
-                granularity={granularity}
-                onGranularityChange={onGranularityChange}
-                showComparison={showComparisonTrend}
-                onToggleComparison={onToggleComparison}
-              />
-            </div>
-            <div className="lg:col-span-5">
-              <RevenueBreakdown
-                categories={analytics.revenueBreakdown}
-                totalRevenue={analytics.executiveMetrics.netRevenue.current}
-              />
-            </div>
-          </div>
-
-          <PaymentHealthFunnelComponent
-            data={analytics.paymentHealth}
-            onViewFailures={() => onDrilldown('failed_renewals')}
-          />
-        </div>
-      )}
-
-      {/* 4. SALES TEAM */}
+      {/* 3. SALES TEAM */}
       {activeSubTab === 'team' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           <SalesTeamPerformance

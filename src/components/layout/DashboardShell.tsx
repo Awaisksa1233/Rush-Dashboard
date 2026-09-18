@@ -59,7 +59,6 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
   const v1SubItems: DomainItem[] = [
     { id: 'sales', label: 'Sales & Growth', icon: ShoppingBag, badge: 'Key' },
     { id: 'memberships', label: 'Membership & Churn', icon: UserCheck, count: validCount },
-    { id: 'revenue', label: 'Revenue & MRR', icon: DollarSign },
     { id: 'team', label: 'Sales Team', icon: Users },
     { id: 'retention', label: 'Retention & Saves', icon: Sparkles },
     { id: 'usage', label: 'Wash Usage', icon: Gauge },
