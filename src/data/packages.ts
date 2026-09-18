@@ -46,6 +46,17 @@ export const PACKAGES: Record<string, PackageDefinition> = {
     borderColor: '#fde68a',
     tag: 'SPK-00004'
   },
+  interior_addon: {
+    id: 'interior_addon' as any,
+    name: 'Interior Clean Add-on',
+    arabicName: 'تنظيف داخلي',
+    monthlyPrice: 79,
+    color: '#f59e0b',
+    accentBg: '#fffbeb',
+    textColor: '#b45309',
+    borderColor: '#fde68a',
+    tag: 'SPK-00004'
+  },
   nano_interior: {
     id: 'nano_interior' as any,
     name: 'Nano + Interior',

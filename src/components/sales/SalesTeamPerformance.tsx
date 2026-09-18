@@ -586,10 +586,10 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                       {/* Package Mix Multi-bar */}
                       <td className="py-3 px-4">
                         <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex mb-1">
-                          <div style={{ width: `${(rep.tierSales.fresh / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.fresh.color }} title={`Fresh: ${rep.tierSales.fresh}`} />
-                          <div style={{ width: `${(rep.tierSales.shiny / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.shiny.color }} title={`Shiny: ${rep.tierSales.shiny}`} />
-                          <div style={{ width: `${(rep.tierSales.nano / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.nano.color }} title={`Nano: ${rep.tierSales.nano}`} />
-                          <div style={{ width: `${(rep.tierSales.interior / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.interior_addon.color }} title={`Interior: ${rep.tierSales.interior}`} />
+                          <div style={{ width: `${(rep.tierSales.fresh / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.fresh?.color || '#3b82f6' }} title={`Fresh: ${rep.tierSales.fresh}`} />
+                          <div style={{ width: `${(rep.tierSales.shiny / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.shiny?.color || '#10b981' }} title={`Shiny: ${rep.tierSales.shiny}`} />
+                          <div style={{ width: `${(rep.tierSales.nano / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.nano?.color || '#8b5cf6' }} title={`Nano: ${rep.tierSales.nano}`} />
+                          <div style={{ width: `${(rep.tierSales.interior / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.interior_addon?.color || PACKAGES.interior_clean?.color || '#f59e0b' }} title={`Interior: ${rep.tierSales.interior}`} />
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
                           <span>F:{rep.tierSales.fresh}</span>
