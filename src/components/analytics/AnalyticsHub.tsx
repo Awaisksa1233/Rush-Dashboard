@@ -3,7 +3,8 @@ import {
   ShoppingBag, 
   UserCheck, 
   Users, 
-  Gauge
+  Gauge,
+  FileText
 } from 'lucide-react';
 import { 
   Granularity, 
@@ -18,12 +19,14 @@ import { PackagePerformanceTable } from '../tables/PackagePerformanceTable';
 import { RetentionAndValue } from '../tables/CohortRetentionTable';
 import { WashUsageDashboard } from '../charts/WashUsageDashboard';
 import { SalesTeamPerformance } from '../sales/SalesTeamPerformance';
+import { KpiGuideView } from './KpiGuideView';
 
 export type AnalyticsSubTab = 
   | 'sales' 
   | 'memberships' 
   | 'team' 
-  | 'usage';
+  | 'usage'
+  | 'kpi_guide';
 
 interface AnalyticsHubProps {
   analytics: any;
@@ -57,6 +60,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
     { id: 'memberships', label: 'Membership, Churn & Retention', icon: UserCheck, badge: 'Retention' },
     { id: 'team', label: 'Sales Team', icon: Users },
     { id: 'usage', label: 'Wash Usage & Fleet', icon: Gauge },
+    { id: 'kpi_guide', label: 'KPI Guide (.md)', icon: FileText, badge: 'Docs' },
   ];
 
   return (
@@ -173,6 +177,11 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
             onPackageClick={(pkgId) => onPackageFilter(pkgId as PackageTier)}
           />
         </div>
+      )}
+
+      {/* 5. KPI CALCULATION GUIDE (.MD) */}
+      {activeSubTab === 'kpi_guide' && (
+        <KpiGuideView />
       )}
     </div>
   );

@@ -62,6 +62,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
     { id: 'memberships', label: 'Membership, Churn & Retention', icon: UserCheck, count: validCount },
     { id: 'team', label: 'Sales Team', icon: Users },
     { id: 'usage', label: 'Wash Usage', icon: Gauge },
+    { id: 'kpi_guide', label: 'KPI Guide (.md)', icon: FileText, badge: 'Docs' },
   ];
 
   const v1Domains: DomainItem[] = [
