@@ -217,6 +217,10 @@ export function App() {
         onOpenCancelPortal={() => navigate('/cancel')}
         isV1={isV1}
         onToggleV1={handleToggleV1}
+        onOpenKpiGuide={() => {
+          setActiveDomain('analytics');
+          setAnalyticsSubTab('kpi_guide');
+        }}
       />
 
       {/* Main Dashboard Canvas */}

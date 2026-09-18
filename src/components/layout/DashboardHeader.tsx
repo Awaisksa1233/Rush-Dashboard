@@ -40,6 +40,7 @@ interface DashboardHeaderProps {
   onOpenCancelPortal?: () => void;
   isV1?: boolean;
   onToggleV1?: () => void;
+  onOpenKpiGuide?: () => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -57,7 +58,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   isRefreshing = false,
   onOpenCancelPortal,
   isV1 = false,
-  onToggleV1
+  onToggleV1,
+  onOpenKpiGuide
 }) => {
   const datePresets: { id: DateRangePreset; label: string }[] = [
     { id: 'today', label: 'Today' },
@@ -219,17 +221,17 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               </button>
             )}
 
-            {/* KPI Documentation .md Guide Link */}
-            <a
-              href="https://github.com/Awaisksa1233/Rush-Dashboard/blob/main/docs/KPI_CALCULATIONS_GUIDE.md"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-black border border-[#e5e5e5] hover:border-slate-300 rounded-lg text-xs font-semibold shadow-2xs transition-all active:scale-95"
-              title="Open KPI Calculations Guide (docs/KPI_CALCULATIONS_GUIDE.md)"
-            >
-              <FileText className="w-3.5 h-3.5 text-[#c91e2f]" />
-              <span>KPI Guide (.md)</span>
-            </a>
+            {/* In-app KPI Documentation Guide Button */}
+            {onOpenKpiGuide && (
+              <button
+                onClick={onOpenKpiGuide}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-black border border-[#e5e5e5] hover:border-slate-300 rounded-lg text-xs font-semibold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                title="Open KPI Calculations Guide"
+              >
+                <FileText className="w-3.5 h-3.5 text-[#c91e2f]" />
+                <span>KPI Guide (.md)</span>
+              </button>
+            )}
           </div>
         </div>
 

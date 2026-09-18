@@ -224,19 +224,20 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
             Documentation
           </div>
 
-          <a
-            href="https://github.com/Awaisksa1233/Rush-Dashboard/blob/main/docs/KPI_CALCULATIONS_GUIDE.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-[#cccccc] hover:bg-[#161616] hover:text-white transition-colors"
-            title="Open KPI Calculations Methodology (.md)"
+          <button
+            onClick={() => {
+              onDomainChange('analytics');
+              onSelectAnalyticsSubTab?.('kpi_guide');
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-[#cccccc] hover:bg-[#161616] hover:text-white transition-colors cursor-pointer"
+            title="Open KPI Calculations Guide"
           >
             <div className="flex items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-amber-400" />
               <span>KPI Guide (.md)</span>
             </div>
-            <span className="text-[10px] font-mono text-[#888888]">Docs ↗</span>
-          </a>
+            <span className="text-[10px] font-mono text-[#888888]">In-App</span>
+          </button>
         </div>
 
         {/* Brand Promise Footer Quote from Guidelines */}

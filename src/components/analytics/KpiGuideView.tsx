@@ -1,7 +1,6 @@
 import React from 'react';
 import { 
   FileText, 
-  ExternalLink, 
   DollarSign, 
   Users, 
   UserCheck, 
@@ -145,16 +144,10 @@ export const KpiGuideView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <a
-            href="https://github.com/Awaisksa1233/Rush-Dashboard/blob/main/docs/KPI_CALCULATIONS_GUIDE.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3.5 py-2 bg-black hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition-all active:scale-95"
-          >
-            <FileText className="w-3.5 h-3.5 text-[#ff6b7b]" />
-            <span>Open docs/KPI_CALCULATIONS_GUIDE.md</span>
-            <ExternalLink className="w-3 h-3 text-slate-400" />
-          </a>
+          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold">
+            <FileText className="w-3.5 h-3.5 text-[#c91e2f]" />
+            <span>KPI Guide (.md)</span>
+          </span>
         </div>
       </div>
 
