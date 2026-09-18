@@ -101,6 +101,10 @@ npm run dev:full
 
 Open your web browser and visit: **`http://localhost:5173`**
 
+## 📚 Documentation & KPI Guide
+
+- [**Executive KPI Calculations Guide (docs/KPI_CALCULATIONS_GUIDE.md)**](docs/KPI_CALCULATIONS_GUIDE.md) — Comprehensive business-level summary explaining how all revenue, membership, churn, and fleet KPIs are calculated across the dashboard.
+
 ---
 
 *“Efficient Speed, Exceptional Clean. Results in just 6 minutes.”*  

@@ -9,7 +9,8 @@ import {
   Layers, 
   Users,
   Flag,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { ActiveDomainTab } from './DashboardHeader';
 import productionData from '../../data/productionCrmData.json';
@@ -216,6 +217,25 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
             </div>
             <span className="text-[10px] font-mono text-[#888888]">{validCount} Cars</span>
           </button>
+
+          {/* KPI Guide Link */}
+          <div className="pt-4 px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-[#777777]">
+            Documentation
+          </div>
+
+          <a
+            href="https://github.com/Awaisksa1233/Rush-Dashboard/blob/main/docs/KPI_CALCULATIONS_GUIDE.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-[#cccccc] hover:bg-[#161616] hover:text-white transition-colors"
+            title="Open KPI Calculations Methodology (.md)"
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5 text-amber-400" />
+              <span>KPI Guide (.md)</span>
+            </div>
+            <span className="text-[10px] font-mono text-[#888888]">Docs ↗</span>
+          </a>
         </div>
 
         {/* Brand Promise Footer Quote from Guidelines */}
