@@ -421,9 +421,9 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                 className="bg-white border border-slate-200 text-slate-800 font-semibold py-1.5 px-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c91e2f]/20 focus:border-[#c91e2f] cursor-pointer"
               >
                 <option value="score">Rank Score (Model A)</option>
-                <option value="conversion">Pitch Conversion % (40%)</option>
-                <option value="membership_price">Avg Membership Price (45%)</option>
-                <option value="onetime_price">Avg One-Time Price (15%)</option>
+                <option value="conversion">Pitch Conversion % (30%)</option>
+                <option value="membership_price">Avg Membership Price (40%)</option>
+                <option value="onetime_price">Avg One-Time Price (30%)</option>
                 <option value="revenue">Revenue Generated</option>
                 <option value="attainment">Quota Attainment %</option>
                 <option value="sales">Units Sold</option>
@@ -461,7 +461,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
               Model A Ranking
             </span>
             <span className="text-xs text-slate-800">
-              Rank calculated by: <strong className="text-emerald-800">40% Pitch Conversion</strong> + <strong className="text-blue-800">45% Avg Membership Price</strong> + <strong className="text-amber-800">15% Avg One-Time Price</strong>
+              Rank calculated by: <strong className="text-emerald-800">30% Pitch Conversion</strong> + <strong className="text-blue-800">40% Avg Membership Price</strong> + <strong className="text-amber-800">30% Avg One-Time Price</strong>
             </span>
           </div>
           <div className="text-[11px] text-slate-500 font-mono">
@@ -485,9 +485,9 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                   <th className="py-3 px-3 text-center w-12">Rank</th>
                   <th className="py-3 px-3 text-center">Score</th>
                   <th className="py-3 px-4">Sales Advisor</th>
-                  <th className="py-3 px-3 text-center">Conv. Rate (40%)</th>
-                  <th className="py-3 px-3 text-right">Avg Memb. (45%)</th>
-                  <th className="py-3 px-3 text-right">Avg 1-Time (15%)</th>
+                  <th className="py-3 px-3 text-center">Conv. Rate (30%)</th>
+                  <th className="py-3 px-3 text-right">Avg Memb. (40%)</th>
+                  <th className="py-3 px-3 text-right">Avg 1-Time (30%)</th>
                   <th className="py-3 px-4 text-right">Revenue</th>
                   <th className="py-3 px-3 text-center min-w-[120px]">Quota Pacing</th>
                   <th className="py-3 px-3 min-w-[100px]">Package Mix</th>
@@ -551,7 +551,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                         </div>
                       </td>
 
-                      {/* Lane Conversion (40% weight) */}
+                      {/* Lane Conversion (30% weight) */}
                       <td className="py-3 px-3 text-center font-mono">
                         <span className="font-bold text-emerald-800 text-xs">
                           {rep.conversionRatePct}%
@@ -561,7 +561,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                         </div>
                       </td>
 
-                      {/* Avg Membership Sales Price (45% weight) */}
+                      {/* Avg Membership Sales Price (40% weight) */}
                       <td className="py-3 px-3 text-right font-mono">
                         <div className="font-bold text-blue-800 text-xs">
                           SAR {rep.avgMembershipPrice?.toFixed(1) || '--'}
@@ -571,7 +571,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                         </div>
                       </td>
 
-                      {/* Avg One-Time Sales Price (15% weight) */}
+                      {/* Avg One-Time Sales Price (30% weight) */}
                       <td className="py-3 px-3 text-right font-mono">
                         <div className="font-bold text-amber-800 text-xs">
                           SAR {rep.avgOneTimePrice?.toFixed(1) || '--'}
@@ -693,15 +693,15 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                     {/* Model A 3-Pillars Card Strip */}
                     <div className="mt-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 flex items-center justify-between text-xs font-mono">
                       <div>
-                        <span className="text-slate-400 text-[9px] block uppercase">Conv (40%)</span>
+                        <span className="text-slate-400 text-[9px] block uppercase">Conv (30%)</span>
                         <strong className="text-emerald-700">{rep.conversionRatePct}%</strong>
                       </div>
                       <div className="border-l border-slate-200 pl-2">
-                        <span className="text-slate-400 text-[9px] block uppercase">Memb (45%)</span>
+                        <span className="text-slate-400 text-[9px] block uppercase">Memb (40%)</span>
                         <strong className="text-blue-700">SAR {rep.avgMembershipPrice?.toFixed(0) || '--'}</strong>
                       </div>
                       <div className="border-l border-slate-200 pl-2">
-                        <span className="text-slate-400 text-[9px] block uppercase">1-Time (15%)</span>
+                        <span className="text-slate-400 text-[9px] block uppercase">1-Time (30%)</span>
                         <strong className="text-amber-700">SAR {rep.avgOneTimePrice?.toFixed(0) || '--'}</strong>
                       </div>
                     </div>
@@ -823,15 +823,15 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
 
                 <div className="grid grid-cols-3 gap-3 text-center sm:text-right font-mono border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-4">
                   <div>
-                    <div className="text-[10px] text-slate-400">Conv. (40%)</div>
+                    <div className="text-[10px] text-slate-400">Conv. (30%)</div>
                     <div className="font-bold text-emerald-400 text-xs mt-0.5">{activeRepModal.conversionRatePct}%</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-400">Avg Memb (45%)</div>
+                    <div className="text-[10px] text-slate-400">Avg Memb (40%)</div>
                     <div className="font-bold text-blue-400 text-xs mt-0.5">SAR {activeRepModal.avgMembershipPrice?.toFixed(1) || '--'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-400">Avg 1-Time (15%)</div>
+                    <div className="text-[10px] text-slate-400">Avg 1-Time (30%)</div>
                     <div className="font-bold text-amber-400 text-xs mt-0.5">SAR {activeRepModal.avgOneTimePrice?.toFixed(1) || '--'}</div>
                   </div>
                 </div>

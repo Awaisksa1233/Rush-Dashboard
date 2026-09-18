@@ -74,9 +74,9 @@ export function getDaysInPeriod(preset: DateRangePreset): number {
 /**
  * Model A: 3-Pillar Normalized Ranking
  * Calculates Sales Advisor Rank based on:
- * 1. Conversion Rate (40% weight)
- * 2. Average Membership Sales Price (45% weight)
- * 3. Average One-Time Sales Price (15% weight)
+ * 1. Conversion Rate (30% weight)
+ * 2. Average Membership Sales Price (40% weight)
+ * 3. Average One-Time Sales Price (30% weight)
  */
 export function enrichAndRankSalesReps(rawReps: SalesRepPerformance[]): SalesRepPerformance[] {
   if (!rawReps || rawReps.length === 0) return [];
@@ -135,14 +135,14 @@ export function enrichAndRankSalesReps(rawReps: SalesRepPerformance[]): SalesRep
   const maxOne = Math.max(...oneTimeVals);
 
   // 3. Compute Model A:
-  // 40% Conversion Rate, 45% Avg Membership Price, 15% Avg One-Time Price
+  // 30% Conversion Rate, 40% Avg Membership Price, 30% Avg One-Time Price
   const scored = withMetrics.map(r => {
     const crNorm = maxCr > minCr ? ((r.conversionRatePct - minCr) / (maxCr - minCr)) * 100 : 75;
     const membNorm = maxMemb > minMemb ? ((r.avgMembershipPrice - minMemb) / (maxMemb - minMemb)) * 100 : 75;
     const oneNorm = maxOne > minOne ? ((r.avgOneTimePrice - minOne) / (maxOne - minOne)) * 100 : 75;
 
     // Weighted Normalized Score
-    const rankScore = Math.round((0.40 * crNorm + 0.45 * membNorm + 0.15 * oneNorm) * 10) / 10;
+    const rankScore = Math.round((0.30 * crNorm + 0.40 * membNorm + 0.30 * oneNorm) * 10) / 10;
 
     return {
       ...r,
@@ -790,7 +790,7 @@ export function calculateDashboardAnalytics(filters: DashboardFilterState, liveD
     branchBreakdown: []
   };
 
-  // Rank sales reps using Model A (40% Conversion, 45% Avg Memb Price, 15% Avg One-Time Price)
+  // Rank sales reps using Model A (30% Conversion, 40% Avg Memb Price, 30% Avg One-Time Price)
   const rankedReps = enrichAndRankSalesReps(rawSalesTeam.reps || []);
   const salesTeamAnalytics: SalesTeamAnalytics = {
     ...rawSalesTeam,

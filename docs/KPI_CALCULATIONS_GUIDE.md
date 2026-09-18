@@ -134,11 +134,11 @@ A business-level summary of how Key Performance Indicators (KPIs) are defined an
 ### Sales Advisor Leaderboard Rank (Model A)
 - **What It Measures**: Performance ranking of lane sales advisors combining closing efficiency, subscription tier quality, and one-off upsell value.
 - **Formula**:
-  $$\text{Rank Score} = (0.40 \times \text{Norm}(CR)) + (0.45 \times \text{Norm}(P_{\text{membership}})) + (0.15 \times \text{Norm}(P_{\text{onetime}}))$$
+  $$\text{Rank Score} = (0.30 \times \text{Norm}(CR)) + (0.40 \times \text{Norm}(P_{\text{membership}})) + (0.30 \times \text{Norm}(P_{\text{onetime}}))$$
 - **The 3 Pillars**:
-  1. **Conversion Rate ($CR$, 40% weight)**: % of lane vehicle pitches converted into paid deals.
-  2. **Avg Membership Sales Price ($P_{\text{membership}}$, 45% weight)**: Average price of subscription deals closed (rewards selling Nano Ceramic 169 SAR vs Fresh 69 SAR).
-  3. **Avg One-Time Sales Price ($P_{\text{onetime}}$, 15% weight)**: Average price of single-wash orders & interior details sold.
+  1. **Conversion Rate ($CR$, 30% weight)**: % of lane vehicle pitches converted into paid deals.
+  2. **Avg Membership Sales Price ($P_{\text{membership}}$, 40% weight)**: Average price of subscription deals closed (rewards selling Nano Ceramic 169 SAR vs Fresh 69 SAR).
+  3. **Avg One-Time Sales Price ($P_{\text{onetime}}$, 30% weight)**: Average price of single-wash orders & interior details sold.
 - **Normalization**: Each component is normalized on a $0 - 100$ scale across team min/max bounds:
   $$\text{Norm}(M) = \left( \frac{M - \min(M)}{\max(M) - \min(M)} \right) \times 100$$
 
