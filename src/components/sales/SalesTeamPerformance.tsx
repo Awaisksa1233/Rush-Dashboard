@@ -34,7 +34,7 @@ interface SalesTeamPerformanceProps {
   onLocationSelect?: (locId: string) => void;
 }
 
-type SortField = 'attainment' | 'revenue' | 'sales' | 'conversion';
+type SortField = 'score' | 'conversion' | 'membership_price' | 'onetime_price' | 'revenue' | 'sales' | 'attainment';
 
 export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
   data,
@@ -58,7 +58,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
   // Local UI filters & view mode
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedShift, setSelectedShift] = useState<'all' | 'morning' | 'evening'>('all');
-  const [sortField, setSortField] = useState<SortField>('revenue');
+  const [sortField, setSortField] = useState<SortField>('score');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [activeRepModal, setActiveRepModal] = useState<SalesRepPerformance | null>(null);
 
@@ -118,15 +118,21 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
 
     result.sort((a, b) => {
       switch (sortField) {
+        case 'conversion':
+          return b.conversionRatePct - a.conversionRatePct;
+        case 'membership_price':
+          return (b.avgMembershipPrice || 0) - (a.avgMembershipPrice || 0);
+        case 'onetime_price':
+          return (b.avgOneTimePrice || 0) - (a.avgOneTimePrice || 0);
         case 'attainment':
           return b.quotaAttainmentPct - a.quotaAttainmentPct;
         case 'sales':
           return b.totalSales - a.totalSales;
-        case 'conversion':
-          return b.conversionRatePct - a.conversionRatePct;
         case 'revenue':
-        default:
           return b.revenueGenerated - a.revenueGenerated;
+        case 'score':
+        default:
+          return (b.rankScore || 0) - (a.rankScore || 0);
       }
     });
 
@@ -408,16 +414,19 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
           <div className="flex items-center gap-2 self-end md:self-auto">
             {/* Sort Dropdown */}
             <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400 font-medium">Sort by:</span>
+              <span className="text-slate-400 font-medium">Rank by:</span>
               <select
                 value={sortField}
                 onChange={(e) => setSortField(e.target.value as SortField)}
                 className="bg-white border border-slate-200 text-slate-800 font-semibold py-1.5 px-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c91e2f]/20 focus:border-[#c91e2f] cursor-pointer"
               >
+                <option value="score">Rank Score (Model A)</option>
+                <option value="conversion">Pitch Conversion % (40%)</option>
+                <option value="membership_price">Avg Membership Price (45%)</option>
+                <option value="onetime_price">Avg One-Time Price (15%)</option>
                 <option value="revenue">Revenue Generated</option>
                 <option value="attainment">Quota Attainment %</option>
                 <option value="sales">Units Sold</option>
-                <option value="conversion">Pitch Conversion %</option>
               </select>
             </div>
 
@@ -445,6 +454,21 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
           </div>
         </div>
 
+        {/* Model A Formula Explainer Banner */}
+        <div className="px-4 py-2.5 bg-gradient-to-r from-amber-50/90 via-slate-50 to-blue-50/70 border-b border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-700 gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wide">
+              Model A Ranking
+            </span>
+            <span className="text-xs text-slate-800">
+              Rank calculated by: <strong className="text-emerald-800">40% Pitch Conversion</strong> + <strong className="text-blue-800">45% Avg Membership Price</strong> + <strong className="text-amber-800">15% Avg One-Time Price</strong>
+            </span>
+          </div>
+          <div className="text-[11px] text-slate-500 font-mono">
+            Normalized 0–100 Benchmark Index
+          </div>
+        </div>
+
         {/* RESULTS VIEW */}
         {filteredReps.length === 0 ? (
           <div className="p-12 text-center text-slate-400">
@@ -458,16 +482,17 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
             <table className="w-full text-left text-xs text-slate-600">
               <thead className="bg-slate-50/70 border-b border-slate-200 font-semibold text-slate-700 text-[11px] uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4 text-center w-12">Rank</th>
+                  <th className="py-3 px-3 text-center w-12">Rank</th>
+                  <th className="py-3 px-3 text-center">Score</th>
                   <th className="py-3 px-4">Sales Advisor</th>
-                  <th className="py-3 px-4">Branch & Shift</th>
-                  <th className="py-3 px-4 text-center">Sales Units</th>
-                  <th className="py-3 px-4 text-right">Revenue Generated</th>
-                  <th className="py-3 px-4 text-center min-w-[150px]">Quota Pacing</th>
-                  <th className="py-3 px-4 text-center">Lane Conv.</th>
-                  <th className="py-3 px-4 min-w-[130px]">Package Mix</th>
-                  <th className="py-3 px-4 text-right">Commission</th>
-                  <th className="py-3 px-4 text-center w-20">Activity</th>
+                  <th className="py-3 px-3 text-center">Conv. Rate (40%)</th>
+                  <th className="py-3 px-3 text-right">Avg Memb. (45%)</th>
+                  <th className="py-3 px-3 text-right">Avg 1-Time (15%)</th>
+                  <th className="py-3 px-4 text-right">Revenue</th>
+                  <th className="py-3 px-3 text-center min-w-[120px]">Quota Pacing</th>
+                  <th className="py-3 px-3 min-w-[100px]">Package Mix</th>
+                  <th className="py-3 px-3 text-right">Commission</th>
+                  <th className="py-3 px-2 text-center w-10">View</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
@@ -481,7 +506,7 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                       onClick={() => setActiveRepModal(rep)}
                     >
                       {/* Rank Column */}
-                      <td className="py-3 px-4 text-center font-bold font-mono">
+                      <td className="py-3 px-3 text-center font-bold font-mono">
                         {rep.rank === 1 ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-xs shadow-2xs">
                             🥇
@@ -499,6 +524,13 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                         )}
                       </td>
 
+                      {/* Rank Score Column */}
+                      <td className="py-3 px-3 text-center font-mono">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-slate-900 text-amber-400 shadow-2xs">
+                          {rep.rankScore ?? '--'}
+                        </span>
+                      </td>
+
                       {/* Rep Name & Profile */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
@@ -513,56 +545,57 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                             <div className="text-[11px] text-slate-400 flex items-center gap-2">
                               <span>{rep.role}</span>
                               <span>&bull;</span>
-                              <span className="font-mono text-slate-400">{rep.id}</span>
+                              <span className="font-mono text-slate-400">{rep.branchName.split('—')[1]?.trim() || rep.branchName}</span>
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* Branch & Shift */}
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-slate-800 text-xs">
-                          {rep.branchName.split('—')[1]?.trim() || rep.branchName}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold uppercase ${
-                            rep.shift === 'morning' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-indigo-50 text-indigo-800 border border-indigo-200'
-                          }`}>
-                            {rep.shift} shift
-                          </span>
+                      {/* Lane Conversion (40% weight) */}
+                      <td className="py-3 px-3 text-center font-mono">
+                        <span className="font-bold text-emerald-800 text-xs">
+                          {rep.conversionRatePct}%
+                        </span>
+                        <div className="text-[10px] text-slate-400">
+                          {rep.pitchesCount} pitches
                         </div>
                       </td>
 
-                      {/* Sales Units */}
-                      <td className="py-3 px-4 text-center">
-                        <div className="font-bold font-display text-base text-slate-900">
-                          {rep.totalSales}
+                      {/* Avg Membership Sales Price (45% weight) */}
+                      <td className="py-3 px-3 text-right font-mono">
+                        <div className="font-bold text-blue-800 text-xs">
+                          SAR {rep.avgMembershipPrice?.toFixed(1) || '--'}
                         </div>
-                        <div className="flex items-center justify-center gap-1 text-[10px] font-mono mt-0.5">
-                          <span className="text-emerald-700" title="New Members">+{rep.newSales} new</span>
-                          <span className="text-slate-300">|</span>
-                          <span className="text-blue-700" title="Upgrades">+{rep.upgrades} upg</span>
+                        <div className="text-[10px] text-slate-400">
+                          {rep.tierSales.fresh + rep.tierSales.shiny + rep.tierSales.nano} deals
+                        </div>
+                      </td>
+
+                      {/* Avg One-Time Sales Price (15% weight) */}
+                      <td className="py-3 px-3 text-right font-mono">
+                        <div className="font-bold text-amber-800 text-xs">
+                          SAR {rep.avgOneTimePrice?.toFixed(1) || '--'}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          single / add-on
                         </div>
                       </td>
 
                       {/* Revenue */}
                       <td className="py-3 px-4 text-right font-mono">
-                        <div className="font-bold text-slate-900 text-sm">
+                        <div className="font-bold text-slate-900 text-xs">
                           {formatSAR(rep.revenueGenerated)}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          ASP: SAR {rep.avgTicketPrice}
+                          {rep.totalSales} units
                         </div>
                       </td>
 
                       {/* Quota Progress */}
-                      <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-between text-[11px] font-mono mb-1">
-                          <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${attainmentStyle.bg} ${attainmentStyle.text} border ${attainmentStyle.border}`}>
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-between text-[10px] font-mono mb-1">
+                          <span className={`px-1.5 py-0.2 rounded-full font-bold text-[10px] ${attainmentStyle.bg} ${attainmentStyle.text} border ${attainmentStyle.border}`}>
                             {rep.quotaAttainmentPct}%
-                          </span>
-                          <span className="text-slate-400 text-[10px]">
-                            of {formatSAR(rep.targetRevenue, true)}
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
@@ -573,25 +606,15 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                         </div>
                       </td>
 
-                      {/* Lane Conversion */}
-                      <td className="py-3 px-4 text-center font-mono">
-                        <span className="font-bold text-slate-900 text-xs">
-                          {rep.conversionRatePct}%
-                        </span>
-                        <div className="text-[10px] text-slate-400">
-                          {rep.pitchesCount} pitches
-                        </div>
-                      </td>
-
                       {/* Package Mix Multi-bar */}
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-3">
                         <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex mb-1">
                           <div style={{ width: `${(rep.tierSales.fresh / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.fresh?.color || '#3b82f6' }} title={`Fresh: ${rep.tierSales.fresh}`} />
                           <div style={{ width: `${(rep.tierSales.shiny / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.shiny?.color || '#10b981' }} title={`Shiny: ${rep.tierSales.shiny}`} />
                           <div style={{ width: `${(rep.tierSales.nano / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.nano?.color || '#8b5cf6' }} title={`Nano: ${rep.tierSales.nano}`} />
                           <div style={{ width: `${(rep.tierSales.interior / rep.totalSales) * 100}%`, backgroundColor: PACKAGES.interior_addon?.color || PACKAGES.interior_clean?.color || '#f59e0b' }} title={`Interior: ${rep.tierSales.interior}`} />
                         </div>
-                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                        <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono">
                           <span>F:{rep.tierSales.fresh}</span>
                           <span>S:{rep.tierSales.shiny}</span>
                           <span>N:{rep.tierSales.nano}</span>
@@ -599,12 +622,12 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                       </td>
 
                       {/* Commission */}
-                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700 text-xs">
+                      <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700 text-xs">
                         {formatSAR(rep.commissionEarned)}
                       </td>
 
                       {/* Action */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-2 text-center">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -649,9 +672,14 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                         </div>
                       </div>
 
-                      <span className="font-bold font-mono text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
-                        #{rep.rank}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold font-mono text-[10px] px-2 py-0.5 rounded-md bg-slate-900 text-amber-400 shadow-2xs">
+                          Score {rep.rankScore ?? '--'}
+                        </span>
+                        <span className="font-bold font-mono text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                          #{rep.rank}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Branch & Shift Badge */}
@@ -662,19 +690,31 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                       <span className="capitalize">{rep.shift}</span>
                     </div>
 
+                    {/* Model A 3-Pillars Card Strip */}
+                    <div className="mt-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 flex items-center justify-between text-xs font-mono">
+                      <div>
+                        <span className="text-slate-400 text-[9px] block uppercase">Conv (40%)</span>
+                        <strong className="text-emerald-700">{rep.conversionRatePct}%</strong>
+                      </div>
+                      <div className="border-l border-slate-200 pl-2">
+                        <span className="text-slate-400 text-[9px] block uppercase">Memb (45%)</span>
+                        <strong className="text-blue-700">SAR {rep.avgMembershipPrice?.toFixed(0) || '--'}</strong>
+                      </div>
+                      <div className="border-l border-slate-200 pl-2">
+                        <span className="text-slate-400 text-[9px] block uppercase">1-Time (15%)</span>
+                        <strong className="text-amber-700">SAR {rep.avgOneTimePrice?.toFixed(0) || '--'}</strong>
+                      </div>
+                    </div>
+
                     {/* Sales Metrics Grid */}
-                    <div className="grid grid-cols-3 gap-2 mt-3.5 text-center">
+                    <div className="grid grid-cols-2 gap-2 mt-3 text-center">
                       <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                        <div className="text-[10px] text-slate-400">Units</div>
+                        <div className="text-[10px] text-slate-400">Total Units</div>
                         <div className="font-bold text-slate-900 text-sm mt-0.5 font-display">{rep.totalSales}</div>
                       </div>
                       <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                        <div className="text-[10px] text-slate-400">Revenue</div>
+                        <div className="text-[10px] text-slate-400">Total Revenue</div>
                         <div className="font-bold text-slate-900 text-xs mt-0.5 font-mono">{formatSAR(rep.revenueGenerated, true)}</div>
-                      </div>
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                        <div className="text-[10px] text-slate-400">Conv. Rate</div>
-                        <div className="font-bold text-teal-700 text-xs mt-0.5 font-mono">{rep.conversionRatePct}%</div>
                       </div>
                     </div>
 
@@ -743,6 +783,9 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
                     <span className="px-2 py-0.2 text-[10px] font-bold rounded bg-amber-100 text-amber-800 font-mono">
                       Rank #{activeRepModal.rank}
                     </span>
+                    <span className="px-2 py-0.2 text-[10px] font-bold rounded bg-slate-900 text-amber-400 font-mono">
+                      Score {activeRepModal.rankScore ?? '--'}
+                    </span>
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
                     <span>{activeRepModal.role}</span>
@@ -762,6 +805,38 @@ export const SalesTeamPerformance: React.FC<SalesTeamPerformanceProps> = ({
 
             {/* Modal Body */}
             <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              {/* Model A Rank Formula Explainer Box */}
+              <div className="p-3.5 rounded-xl bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                      Model A Performance Index
+                    </span>
+                    <span className="text-white font-bold text-base font-mono">
+                      {activeRepModal.rankScore ?? '--'} <span className="text-xs text-slate-400 font-normal">/ 100</span>
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-300 mt-1">
+                    Normalized 3-pillar calculation determining team leaderboard position
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-center sm:text-right font-mono border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-4">
+                  <div>
+                    <div className="text-[10px] text-slate-400">Conv. (40%)</div>
+                    <div className="font-bold text-emerald-400 text-xs mt-0.5">{activeRepModal.conversionRatePct}%</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400">Avg Memb (45%)</div>
+                    <div className="font-bold text-blue-400 text-xs mt-0.5">SAR {activeRepModal.avgMembershipPrice?.toFixed(1) || '--'}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400">Avg 1-Time (15%)</div>
+                    <div className="font-bold text-amber-400 text-xs mt-0.5">SAR {activeRepModal.avgOneTimePrice?.toFixed(1) || '--'}</div>
+                  </div>
+                </div>
+              </div>
+
               {/* Performance Stats Cards */}
               <div className="grid grid-cols-4 gap-2 text-center text-xs">
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">

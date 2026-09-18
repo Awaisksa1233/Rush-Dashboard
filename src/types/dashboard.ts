@@ -269,6 +269,9 @@ export interface SalesRepPerformance {
     interior: number;
   };
   rank: number;
+  rankScore: number;
+  avgMembershipPrice: number;
+  avgOneTimePrice: number;
   recentDeals: RepDealRecord[];
 }
 

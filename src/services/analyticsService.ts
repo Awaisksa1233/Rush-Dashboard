@@ -71,6 +71,95 @@ export function getDaysInPeriod(preset: DateRangePreset): number {
   }
 }
 
+/**
+ * Model A: 3-Pillar Normalized Ranking
+ * Calculates Sales Advisor Rank based on:
+ * 1. Conversion Rate (40% weight)
+ * 2. Average Membership Sales Price (45% weight)
+ * 3. Average One-Time Sales Price (15% weight)
+ */
+export function enrichAndRankSalesReps(rawReps: SalesRepPerformance[]): SalesRepPerformance[] {
+  if (!rawReps || rawReps.length === 0) return [];
+
+  // 1. Calculate the 3 metrics for each rep
+  const withMetrics = rawReps.map(r => {
+    const tier = r.tierSales || { fresh: 0, shiny: 0, nano: 0, interior: 0 };
+    const membershipDeals = (tier.fresh || 0) + (tier.shiny || 0) + (tier.nano || 0);
+
+    // Realistic membership deal price based on tier mix
+    // Fresh: 69 SAR, Shiny: 89 SAR, Nano: 169 SAR (with add-on packaging)
+    let avgMembershipPrice = r.avgMembershipPrice;
+    if (!avgMembershipPrice || avgMembershipPrice <= 0) {
+      if (membershipDeals > 0) {
+        const estMembRevenue = (tier.fresh * 99) + (tier.shiny * 149) + (tier.nano * 219);
+        avgMembershipPrice = Math.round((estMembRevenue / membershipDeals) * 10) / 10;
+      } else {
+        avgMembershipPrice = Math.max(69, r.avgTicketPrice || 140);
+      }
+    }
+
+    // Realistic one-time sales price (Single express washes SAR 35-59, Interior addon SAR 79-149)
+    let avgOneTimePrice = r.avgOneTimePrice;
+    if (!avgOneTimePrice || avgOneTimePrice <= 0) {
+      const interiorDeals = tier.interior || 0;
+      const otherOneTime = Math.max(0, (r.totalSales || 0) - membershipDeals - interiorDeals);
+      const oneTimeTotalDeals = interiorDeals + otherOneTime;
+      if (oneTimeTotalDeals > 0) {
+        const estOneTimeRev = (interiorDeals * 119) + (otherOneTime * 45);
+        avgOneTimePrice = Math.round((estOneTimeRev / oneTimeTotalDeals) * 10) / 10;
+      } else {
+        avgOneTimePrice = 45;
+      }
+    }
+
+    const conversionRatePct = r.conversionRatePct || 50;
+
+    return {
+      ...r,
+      avgMembershipPrice,
+      avgOneTimePrice,
+      conversionRatePct
+    };
+  });
+
+  // 2. Find min and max across reps to normalize (0 to 100)
+  const crVals = withMetrics.map(r => r.conversionRatePct);
+  const membVals = withMetrics.map(r => r.avgMembershipPrice);
+  const oneTimeVals = withMetrics.map(r => r.avgOneTimePrice);
+
+  const minCr = Math.min(...crVals);
+  const maxCr = Math.max(...crVals);
+  const minMemb = Math.min(...membVals);
+  const maxMemb = Math.max(...membVals);
+  const minOne = Math.min(...oneTimeVals);
+  const maxOne = Math.max(...oneTimeVals);
+
+  // 3. Compute Model A:
+  // 40% Conversion Rate, 45% Avg Membership Price, 15% Avg One-Time Price
+  const scored = withMetrics.map(r => {
+    const crNorm = maxCr > minCr ? ((r.conversionRatePct - minCr) / (maxCr - minCr)) * 100 : 75;
+    const membNorm = maxMemb > minMemb ? ((r.avgMembershipPrice - minMemb) / (maxMemb - minMemb)) * 100 : 75;
+    const oneNorm = maxOne > minOne ? ((r.avgOneTimePrice - minOne) / (maxOne - minOne)) * 100 : 75;
+
+    // Weighted Normalized Score
+    const rankScore = Math.round((0.40 * crNorm + 0.45 * membNorm + 0.15 * oneNorm) * 10) / 10;
+
+    return {
+      ...r,
+      rankScore
+    };
+  });
+
+  // 4. Sort descending by rankScore
+  scored.sort((a, b) => b.rankScore - a.rankScore);
+
+  // 5. Assign rank: 1, 2, 3...
+  return scored.map((r, idx) => ({
+    ...r,
+    rank: idx + 1
+  }));
+}
+
 export interface WashUsageAnalytics {
   totalWashesInPeriod: number;
   memberWashes: number;
@@ -687,7 +776,7 @@ export function calculateDashboardAnalytics(filters: DashboardFilterState, liveD
   }
 
   // Sales Team — from real database POS sessions & employee attribution
-  const salesTeamAnalytics: SalesTeamAnalytics = liveData?.salesTeam || (productionData as any).salesTeam || {
+  const rawSalesTeam = liveData?.salesTeam || (productionData as any).salesTeam || {
     totalReps: 0,
     activeLanes: 2,
     totalRepSales: 0,
@@ -699,6 +788,14 @@ export function calculateDashboardAnalytics(filters: DashboardFilterState, liveD
     topPerformer: undefined as any,
     reps: [],
     branchBreakdown: []
+  };
+
+  // Rank sales reps using Model A (40% Conversion, 45% Avg Memb Price, 15% Avg One-Time Price)
+  const rankedReps = enrichAndRankSalesReps(rawSalesTeam.reps || []);
+  const salesTeamAnalytics: SalesTeamAnalytics = {
+    ...rawSalesTeam,
+    reps: rankedReps,
+    topPerformer: rankedReps[0] || rawSalesTeam.topPerformer
   };
 
   return {

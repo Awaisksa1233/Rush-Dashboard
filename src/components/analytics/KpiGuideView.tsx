@@ -119,6 +119,11 @@ export const KpiGuideView: React.FC = () => {
           name: 'Quota Attainment',
           formula: '[Actual Sales Units ÷ Target Monthly Quota] × 100%',
           description: 'Sales performance tracking against individual rep and branch monthly targets.'
+        },
+        {
+          name: 'Sales Advisor Rank (Model A)',
+          formula: 'Score = 40% × Norm(Conv Rate) + 45% × Norm(Avg Memb Price) + 15% × Norm(Avg One-Time Price)',
+          description: '3-pillar normalized index (0–100) combining lane pitch conversion rate, high-tier subscription sales price (Nano Ceramic vs Fresh), and premium one-off add-on upsells.'
         }
       ]
     }
