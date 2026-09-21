@@ -737,7 +737,9 @@ export function calculateDashboardAnalytics(filters: DashboardFilterState, liveD
     washesByPkg[wpkg] = (washesByPkg[wpkg] || 0) + 1;
   });
 
-  const packageTable: PackageEconomicsRow[] = (Object.keys(PACKAGES) as PackageTier[]).map(pkgId => {
+  const packageTable: PackageEconomicsRow[] = (Object.keys(PACKAGES) as PackageTier[])
+    .filter(pkgId => pkgId !== 'interior_addon' && (pkgCounts[pkgId] || 0) > 0)
+    .map(pkgId => {
     const memberCount = pkgCounts[pkgId] || 0;
     const mrr = pkgMRR[pkgId] || 0;
     const mrrSharePct = rawMRR > 0 ? parseFloat(((mrr / rawMRR) * 100).toFixed(1)) : 0;

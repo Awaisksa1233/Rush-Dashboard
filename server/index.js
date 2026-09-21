@@ -105,9 +105,9 @@ app.get('/api/health', async (req, res) => {
   if (isMongoConnected && mongoDb) {
     try {
       if (hasCol('rushwash_subscriptions')) {
-        totalSubscriptions = await mongoDb.collection('rushwash_subscriptions').countDocuments();
-        memberCount = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: 'active' });
-        failedCount = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: { $in: ['expired', 'terminated'] } });
+        totalSubscriptions = await mongoDb.collection('rushwash_subscriptions').countDocuments({ parentSubCode: null });
+        memberCount = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: 'active', parentSubCode: null });
+        failedCount = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: { $in: ['expired', 'terminated'] }, parentSubCode: null });
       } else if (hasCol('validMembers')) {
         memberCount = await mongoDb.collection('validMembers').countDocuments();
         failedCount = await mongoDb.collection('failedRenewals').countDocuments();
@@ -437,14 +437,14 @@ app.get('/api/revenue-trend', async (req, res) => {
 app.get('/api/dashboard-summary', async (req, res) => {
   if (isMongoConnected && mongoDb && hasCol('rushwash_subscriptions')) {
     try {
-      const activeMemberships = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: 'active' });
-      const failedRenewalsCount = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: { $in: ['expired', 'terminated'] } });
-      const voluntaryChurnCount = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: 'cancelled_voluntary' });
+      const activeMemberships = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: 'active', parentSubCode: null });
+      const failedRenewalsCount = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: { $in: ['expired', 'terminated'] }, parentSubCode: null });
+      const voluntaryChurnCount = await mongoDb.collection('rushwash_subscriptions').countDocuments({ status: 'cancelled_voluntary', parentSubCode: null });
       
       const washCol = hasCol('rushwash_wash_histories') ? 'rushwash_wash_histories' : 'washEvents';
       const totalWashesRecorded = await mongoDb.collection(washCol).countDocuments();
 
-      // MRR Aggregation
+      // MRR Aggregation (sums both exterior and interior add-on revenue)
       const mrrAgg = await mongoDb.collection('rushwash_subscriptions').aggregate([
         { $match: { status: 'active' } },
         { $group: { _id: null, totalMRR: { $sum: '$price' } } }
@@ -452,24 +452,52 @@ app.get('/api/dashboard-summary', async (req, res) => {
       const totalMRR = mrrAgg[0]?.totalMRR || 0;
       const avgARPM = activeMemberships > 0 ? parseFloat((totalMRR / activeMemberships).toFixed(1)) : 0;
 
-      // Package Distribution Aggregation
+      // Package Distribution Aggregation (exterior packages with child add-ons rolled up)
       const pkgAgg = await mongoDb.collection('rushwash_subscriptions').aggregate([
-        { $match: { status: 'active' } },
+        { $match: { status: 'active', parentSubCode: null } },
+        {
+          $lookup: {
+            from: 'rushwash_subscriptions',
+            localField: 'readableCode',
+            foreignField: 'parentSubCode',
+            as: 'childSubs'
+          }
+        },
+        {
+          $project: {
+            packageNameEn: 1,
+            packageReadableCode: 1,
+            price: 1,
+            childPrice: {
+              $reduce: {
+                input: {
+                  $filter: {
+                    input: '$childSubs',
+                    as: 'c',
+                    cond: { $eq: ['$$c.status', 'active'] }
+                  }
+                },
+                initialValue: 0,
+                in: { $add: ['$$value', { $ifNull: ['$$this.price', 0] }] }
+              }
+            }
+          }
+        },
         {
           $group: {
             _id: '$packageNameEn',
             packageCode: { $first: '$packageReadableCode' },
             count: { $sum: 1 },
-            totalMrr: { $sum: '$price' },
-            avgPrice: { $avg: '$price' }
+            totalMrr: { $sum: { $add: ['$price', '$childPrice'] } },
+            avgPrice: { $avg: { $add: ['$price', '$childPrice'] } }
           }
         },
         { $sort: { count: -1 } }
       ]).toArray();
 
-      // Recent 100 members
+      // Recent 100 members (exterior base)
       const rawMembers = await mongoDb.collection('rushwash_subscriptions')
-        .find({ status: 'active' })
+        .find({ status: 'active', parentSubCode: null })
         .sort({ updatedAt: -1 })
         .limit(100)
         .toArray();
@@ -488,7 +516,7 @@ app.get('/api/dashboard-summary', async (req, res) => {
 
       // Recent 100 failed
       const rawFailed = await mongoDb.collection('rushwash_subscriptions')
-        .find({ status: { $in: ['expired', 'terminated'] } })
+        .find({ status: { $in: ['expired', 'terminated'] }, parentSubCode: null })
         .sort({ updatedAt: -1 })
         .limit(100)
         .toArray();
@@ -508,7 +536,7 @@ app.get('/api/dashboard-summary', async (req, res) => {
 
       // Recent 100 churned
       const rawChurn = await mongoDb.collection('rushwash_subscriptions')
-        .find({ status: 'cancelled_voluntary' })
+        .find({ status: 'cancelled_voluntary', parentSubCode: null })
         .sort({ updatedAt: -1 })
         .limit(100)
         .toArray();
