@@ -56,6 +56,8 @@ class StorageManager:
         self.mongo_client: Optional[MongoClient] = None
         self.db = None
         self.collection = None
+        self._cached_events: List[Dict[str, Any]] = []
+        self._last_mtime: float = 0.0
         self._init_mongo()
 
     def _init_mongo(self):
@@ -84,6 +86,12 @@ class StorageManager:
         try:
             with open(JSONL_LOG_PATH, "a", encoding="utf-8") as f:
                 f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+            if self._cached_events is not None:
+                self._cached_events.append(doc)
+                try:
+                    self._last_mtime = JSONL_LOG_PATH.stat().st_mtime
+                except Exception:
+                    pass
         except Exception as e:
             logger.error(f"Failed to append to JSONL log: {e}")
 
@@ -219,20 +227,27 @@ class StorageManager:
                 logger.warning(f"Failed to update status in Mongo: {e}")
 
     def _read_all_jsonl(self) -> List[Dict[str, Any]]:
-        events = []
-        if JSONL_LOG_PATH.exists():
-            try:
-                with open(JSONL_LOG_PATH, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            try:
-                                events.append(json.loads(line))
-                            except Exception:
-                                pass
-            except Exception as e:
-                logger.error(f"Error reading JSONL: {e}")
-        return events
+        if not JSONL_LOG_PATH.exists():
+            return []
+        try:
+            mtime = JSONL_LOG_PATH.stat().st_mtime
+            if self._cached_events and mtime == self._last_mtime:
+                return self._cached_events
+            events = []
+            with open(JSONL_LOG_PATH, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            events.append(json.loads(line))
+                        except Exception:
+                            pass
+            self._cached_events = events
+            self._last_mtime = mtime
+            return self._cached_events
+        except Exception as e:
+            logger.error(f"Error reading JSONL: {e}")
+            return self._cached_events or []
 
     def get_conversations(self) -> List[Dict[str, Any]]:
         """

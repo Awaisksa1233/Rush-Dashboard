@@ -149,15 +149,21 @@ dnspython>=2.4.0
     sftp.close()
     print("[+] Application files uploaded successfully.")
 
-    # 6. Setup Virtualenv & install dependencies
-    setup_cmds = [
-        "export DEBIAN_FRONTEND=noninteractive && apt-get update -y && apt-get install -y python3-pip python3-venv",
-        f"python3 -m venv {REMOTE_DIR}/venv",
-        f"{REMOTE_DIR}/venv/bin/pip install --upgrade pip",
-        f"{REMOTE_DIR}/venv/bin/pip install -r {REMOTE_DIR}/requirements.txt"
-    ]
-    for c in setup_cmds:
-        run_ssh(client, c)
+    # 6. Check if virtualenv already exists to avoid redundant slow apt/pip runs
+    full_setup = "--setup" in sys.argv
+    out, _ = run_ssh(client, f"test -f {REMOTE_DIR}/venv/bin/python && echo 'VENV_EXISTS'", ignore_error=True)
+    if full_setup or "VENV_EXISTS" not in out:
+        print("[+] Configuring Python virtual environment & packages...")
+        setup_cmds = [
+            "export DEBIAN_FRONTEND=noninteractive && apt-get update -y && apt-get install -y python3-pip python3-venv",
+            f"python3 -m venv {REMOTE_DIR}/venv",
+            f"{REMOTE_DIR}/venv/bin/pip install --upgrade pip",
+            f"{REMOTE_DIR}/venv/bin/pip install -r {REMOTE_DIR}/requirements.txt"
+        ]
+        for c in setup_cmds:
+            run_ssh(client, c)
+    else:
+        print("[+] Virtualenv exists. Skipping apt-get/pip install for instant deployment.")
 
     # 7. Create and install Systemd Service
     systemd_unit = f"""[Unit]
