@@ -33,7 +33,8 @@ export const NetRevenueHero: React.FC<NetRevenueHeroProps> = ({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   
-  const greenPct = recurringInflowPct;
+  const boundedPct = Math.min(100, Math.max(0, Math.round(recurringInflowPct)));
+  const greenPct = boundedPct;
   const cyanPct = Math.max(0, 100 - greenPct);
   const greenDash = (greenPct / 100) * circumference;
   const cyanDash = (cyanPct / 100) * circumference;
@@ -130,13 +131,13 @@ export const NetRevenueHero: React.FC<NetRevenueHeroProps> = ({
             </svg>
             {/* Center Percentage */}
             <div className="absolute inset-0 m-auto flex items-center justify-center text-xs font-bold font-mono text-slate-800">
-              {recurringInflowPct}%
+              {boundedPct}%
             </div>
           </div>
 
           <div>
             <div className="text-sm font-extrabold text-slate-900 leading-tight">
-              {recurringInflowPct}% Recurring Inflow
+              {boundedPct}% Recurring Inflow
             </div>
             <div className="text-xs text-slate-500 mt-0.5 leading-tight font-medium">
               Normalized Monthly MRR

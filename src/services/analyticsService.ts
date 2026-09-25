@@ -295,9 +295,14 @@ export function calculateDashboardAnalytics(filters: DashboardFilterState, liveD
   }
 
   // 1. Memberships snapshot
-  const baseValid = rawMembers;
-  const autoRenew = baseValid;
-  const cancelledValid = 0;
+  const totalValidFromSummary = (metricsSummary as any)?.totalValidMembers || (metricsSummary as any)?.validMembers;
+  const autoRenewFromSummary = (metricsSummary as any)?.autoRenewCount || (metricsSummary as any)?.activeMembers || metricsSummary?.activeMemberships;
+  const cancelledValidFromSummary = (metricsSummary as any)?.cancelledValidUntilExpiryCount;
+
+  const totalValidCount = totalValidFromSummary || allMembers.length;
+  const autoRenew = selectedKey !== 'all' ? rawMembers : (autoRenewFromSummary || allMembers.filter((m: any) => m.category === 'auto_renew' || m.status?.includes('Auto-Renew')).length);
+  const cancelledValid = selectedKey !== 'all' ? 0 : (cancelledValidFromSummary !== undefined ? cancelledValidFromSummary : Math.max(0, totalValidCount - autoRenew));
+  const baseValid = selectedKey !== 'all' ? rawMembers : totalValidCount;
   const validChangePct = 0;
   const changeVsStart = 0;
 
@@ -593,8 +598,8 @@ export function calculateDashboardAnalytics(filters: DashboardFilterState, liveD
       changePct: -0.8
     },
     heroAverages: {
-      recurringInflowPct: Math.round(heroRolling.recurringInflowPct || 95),
-      singleInflowPct: Math.round(heroRolling.singleInflowPct || 5),
+      recurringInflowPct: Math.min(100, Math.max(0, Math.round(heroRolling.recurringInflowPct || 91.5))),
+      singleInflowPct: Math.max(0, 100 - Math.min(100, Math.max(0, Math.round(heroRolling.recurringInflowPct || 91.5)))),
       avgTotalWash: heroRolling.avgTotalWash || 34.44,
       avgMemberSale: heroRolling.avgMemberSale || 210.54,
       avgMemberWash: heroRolling.avgMemberWash || 32.65,
