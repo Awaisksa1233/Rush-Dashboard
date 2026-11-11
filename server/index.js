@@ -2009,11 +2009,684 @@ app.get('/api/retention/metrics', (req, res) => {
 app.post('/api/cancellation-flow/evaluate', (req, res) => {
   res.redirect(307, '/api/cancellation/session/start');
 });
+// ─────────────────────────────────────────────────────────────────────────────
+// CONVERSION FUNNELS (shared cohort engine)
+// Every funnel follows the same rules:
+//  • Cohort = customers whose *entry event* (signup, first paid wash, …) falls in
+//    [from, to] (Riyadh dates).
+//  • Each customer gets `window` days from their own entry event to progress.
+//  • Only customers whose window has fully elapsed ("mature") enter the rates;
+//    the rest are reported separately as "still in window".
+//  • Steps are cumulative: reaching a later step counts as reaching the earlier
+//    ones (subscribing is the last step and implies every step before it).
+//  • `from` is clamped to SUBSCRIPTION_TRACKING_START.
+// ─────────────────────────────────────────────────────────────────────────────
+const DAY_MS = 86400000;
+const RIYADH_OFFSET = '+03:00';
+// Memberships only start appearing in rushwash_subscriptions at volume from this
+// Riyadh date (go-live of subscription tracking). Cohorts before it would show
+// ~0% conversion purely because of missing data, so `from` is clamped to it.
+const SUBSCRIPTION_TRACKING_START = '2026-07-23';
+const FUNNEL_WINDOWS = [7, 30, 60, 90];
+
+function riyadhDate(ymd, endOfDay = false) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd || '')) return null;
+  const d = new Date(`${ymd}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}${RIYADH_OFFSET}`);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function riyadhMonth(date) {
+  return new Date(date.getTime() + 3 * 3600000).toISOString().slice(0, 7);
+}
+
+function percentile(sorted, p) {
+  if (!sorted.length) return null;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1));
+  return sorted[idx];
+}
+
+/** Parse window/from/to query params. Returns { error } or { windowDays, from, to, trackingStart, clamped, now }. */
+function parseFunnelQuery(query) {
+  const windowDays = FUNNEL_WINDOWS.includes(Number(query.window)) ? Number(query.window) : 30;
+  const now = new Date();
+  const trackingStart = riyadhDate(SUBSCRIPTION_TRACKING_START);
+  const requestedFrom = riyadhDate(query.from) || trackingStart;
+  const from = requestedFrom < trackingStart ? trackingStart : requestedFrom;
+  const to = riyadhDate(query.to, true) || now;
+  if (from > to) return { error: '`from` must be on or before `to`.' };
+  return { windowDays, from, to, trackingStart, clamped: requestedFrom < trackingStart, now };
+}
+
+/** First top-level subscription per customer id (string) → { createdAt, price }. */
+async function firstSubscriptionsByCustomer(customerIds) {
+  const subs = await mongoDb.collection('rushwash_subscriptions')
+    .find({ customerId: { $in: customerIds }, parentSubCode: null }, { projection: { customerId: 1, createdAt: 1, price: 1, readableCode: 1 } })
+    .toArray();
+  const first = new Map();
+  for (const s of subs) {
+    const key = String(s.customerId);
+    const prev = first.get(key);
+    if (!prev || s.createdAt < prev.createdAt) first.set(key, s);
+  }
+  return first;
+}
+
+/**
+ * Shared funnel aggregation.
+ * @param entrants  [{ start: Date, sub: {createdAt, price}|null, progress: (windowEnd) => stepIndex, segments: { [segId]: [key, label] } }]
+ *                  progress must return steps.length - 1 exactly when the customer subscribed within the window.
+ * @param steps     [{ id, label, description }]
+ * @param segmentDefs [{ id, title }]
+ * @param stalledStep index of the step whose "reached but not subscribed" customers count as MRR at stake (null = none)
+ */
+function buildFunnel({ entrants, params, steps, segmentDefs, stalledStep, labels }) {
+  const { windowDays, now } = params;
+  const last = steps.length - 1;
+  const zero = () => steps.map(() => 0);
+  const overall = zero();
+  const inWindow = zero();
+  const segMaps = Object.fromEntries(segmentDefs.map(s => [s.id, new Map()]));
+  const byMonth = new Map();
+  const lagsDays = [];
+  const lagBuckets = { sameDay: 0, d1to7: 0, d8to30: 0, d31plus: 0 };
+  const subPrices = [];
+  let stalled = 0;
+
+  const add = (arr, progress) => { for (let i = 0; i <= progress; i++) arr[i]++; };
+
+  for (const e of entrants) {
+    const windowEnd = new Date(e.start.getTime() + windowDays * DAY_MS);
+    const mature = windowEnd <= now;
+    const progress = e.progress(windowEnd);
+    add(mature ? overall : inWindow, progress);
+
+    const month = riyadhMonth(e.start);
+    if (!byMonth.has(month)) byMonth.set(month, { month, entered: 0, subscribed: 0, mature: 0, pending: 0 });
+    const m = byMonth.get(month);
+    m.entered++;
+    if (!mature) { m.pending++; continue; }
+    m.mature++;
+    if (progress === last) m.subscribed++;
+
+    for (const def of segmentDefs) {
+      const [key, label] = e.segments[def.id];
+      const map = segMaps[def.id];
+      if (!map.has(key)) map.set(key, { key, label, counts: zero() });
+      add(map.get(key).counts, progress);
+    }
+
+    if (progress === stalledStep) stalled++;
+    if (progress === last && e.sub) {
+      const lag = Math.max(0, (e.sub.createdAt - e.start) / DAY_MS);
+      lagsDays.push(lag);
+      if (lag < 1) lagBuckets.sameDay++;
+      else if (lag <= 7) lagBuckets.d1to7++;
+      else if (lag <= 30) lagBuckets.d8to30++;
+      else lagBuckets.d31plus++;
+      if (typeof e.sub.price === 'number' && e.sub.price > 0) subPrices.push(e.sub.price);
+    }
+  }
+
+  lagsDays.sort((a, b) => a - b);
+  const avgSubPrice = subPrices.length ? subPrices.reduce((a, b) => a + b, 0) / subPrices.length : 0;
+  const round1 = v => (v == null ? null : Math.round(v * 10) / 10);
+
+  return {
+    generatedAt: now.toISOString(),
+    timezone: 'Asia/Riyadh',
+    cohort: {
+      from: params.from.toISOString(),
+      to: params.to.toISOString(),
+      windowDays,
+      trackingStart: params.trackingStart.toISOString(),
+      clampedToTrackingStart: params.clamped
+    },
+    labels,
+    steps: steps.map((s, i) => ({ ...s, users: overall[i] })),
+    inWindow: { entered: inWindow[0], subscribed: inWindow[last] },
+    timeToConvert: {
+      converters: lagsDays.length,
+      medianDays: round1(percentile(lagsDays, 0.5)),
+      p75Days: round1(percentile(lagsDays, 0.75)),
+      p95Days: round1(percentile(lagsDays, 0.95)),
+      buckets: lagBuckets
+    },
+    // Only meaningful when there is an intermediate step (customers who showed intent but did not subscribe).
+    opportunity: stalledStep == null ? null : {
+      stalled,
+      stalledLabel: labels.stalled,
+      avgSubscriptionPrice: Math.round(avgSubPrice),
+      monthlyRevenueAtStake: Math.round(stalled * avgSubPrice)
+    },
+    segments: segmentDefs.map(def => ({
+      id: def.id,
+      title: def.title,
+      rows: [...segMaps[def.id].values()].sort((a, b) => b.counts[0] - a.counts[0])
+    })),
+    monthly: [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month))
+  };
+}
+
+function funnelGuard(res) {
+  if (!isMongoConnected || !mongoDb || !hasCol('rushwash_customers')) {
+    res.status(503).json({ error: 'Funnel needs the MongoDB connection (local copy). Database is offline.' });
+    return false;
+  }
+  return true;
+}
+
+// ── Funnel 1: Signup → Subscription ──────────────────────────────────────────
+// Entry = customer account created. Steps: signed up → came back (1+ wash) →
+// repeat visitor (2+ washes) → subscribed. ~1/3 of subscribers subscribe at
+// signup before any wash is logged, hence cumulative steps.
+app.get('/api/funnel/signup-subscription', async (req, res) => {
+  if (!funnelGuard(res)) return;
+  const params = parseFunnelQuery(req.query);
+  if (params.error) return res.status(400).json({ error: params.error });
+  const { from, to, windowDays } = params;
+
+  try {
+    const customers = await mongoDb.collection('rushwash_customers')
+      .find({ createdAt: { $gte: from, $lte: to } }, { projection: { createdAt: 1, createdByShopId: 1, createdById: 1 } })
+      .toArray();
+    const ids = customers.map(c => c._id);
+
+    const [firstSub, washAgg, shops] = await Promise.all([
+      firstSubscriptionsByCustomer(ids),
+      mongoDb.collection('rushwash_wash_histories').aggregate([
+        { $match: { customerId: { $in: ids }, washDate: { $gte: new Date(from.getTime() - DAY_MS) } } },
+        { $sort: { washDate: 1 } },
+        { $group: { _id: '$customerId', dates: { $push: '$washDate' }, firstPlan: { $first: '$planType' } } },
+        { $project: { dates: { $slice: ['$dates', 3] }, firstPlan: 1 } }
+      ], { allowDiskUse: true }).toArray(),
+      hasCol('rushwash_shops')
+        ? mongoDb.collection('rushwash_shops').find({}, { projection: { readableCode: 1, name: 1 } }).toArray()
+        : Promise.resolve([])
+    ]);
+    const shopName = new Map(shops.map(s => [s.readableCode, s.name?.en || s.readableCode]));
+    const washes = new Map(washAgg.map(w => [String(w._id), w]));
+
+    const entrants = customers.map(c => {
+      const key = String(c._id);
+      const signup = c.createdAt;
+      const sub = firstSub.get(key) || null;
+      const w = washes.get(key);
+      const shop = c.createdByShopId;
+      const sourceKey = shop || (c.createdById === 'portal-signup' ? 'portal' : 'unknown');
+      const plan = w?.firstPlan;
+      return {
+        start: signup,
+        sub,
+        progress: windowEnd => {
+          if (sub && sub.createdAt <= windowEnd) return 3;
+          // Same-visit tolerance: a wash logged up to 1 day before the account record still counts.
+          const n = w ? w.dates.filter(d => d >= new Date(signup.getTime() - DAY_MS) && d <= windowEnd).length : 0;
+          return n >= 2 ? 2 : n >= 1 ? 1 : 0;
+        },
+        segments: {
+          source: [sourceKey, shop ? `Branch signup - ${shopName.get(shop) || shop}`
+            : sourceKey === 'portal' ? 'Online portal signup' : 'Source not recorded'],
+          firstVisit: [plan || 'none', plan === 'exterior_wash' ? 'First visit: exterior wash'
+            : plan === 'interior_cleaning' ? 'First visit: interior cleaning' : 'No wash recorded']
+        }
+      };
+    });
+
+    res.json(buildFunnel({
+      entrants,
+      params,
+      steps: [
+        { id: 'signedUp', label: 'Signed up', description: 'Customer account created in the cohort range' },
+        { id: 'visited', label: 'Came back', description: `At least 1 wash (or subscribed) within ${windowDays} days` },
+        { id: 'repeat', label: 'Repeat visitor', description: `2+ washes (or subscribed) within ${windowDays} days` },
+        { id: 'subscribed', label: 'Subscribed', description: `Started a membership within ${windowDays} days` }
+      ],
+      segmentDefs: [{ id: 'source', title: 'By signup source' }, { id: 'firstVisit', title: 'By first visit type' }],
+      stalledStep: 2,
+      labels: { entered: 'Signups', anchor: 'signup', stalled: 'repeat visitors' }
+    }));
+  } catch (e) {
+    console.warn('[CRM Backend] Signup funnel query error:', e.message);
+    res.status(500).json({ error: 'Funnel query failed', detail: e.message });
+  }
+});
+
+// ── Funnels 2 & 3: Free wash / Paid wash → Member → Retained ─────────────────
+// Entry = customer's first-ever one-time wash of the given kind. A one-time
+// wash is a sale order that is
+//   • status paid / active / checked_in,
+//   • not linked to a subscription and not a renewal,
+//   • contains a service line, no line covered by a membership, and no
+//     membership package, wallet top-up or gift card line.
+// Paid = netTotal > 0. Free = netTotal ≤ 0 (coupon / promo / custom discount).
+// Customers who had a membership before their first such wash are excluded:
+// these funnels measure never-members only.
+// Steps: entry wash → member (subscribed within the window), then retention
+// steps for members who joined on/after RETENTION_TRACKING_START:
+// paid 1st renewal → paid 2nd renewal.
+const ONE_TIME_WASH_STATUSES = ['paid', 'active', 'checked_in'];
+const NON_WASH_LINE_KINDS = ['package', 'wallet_top_up', 'gift_card'];
+// Retention is tracked for members who joined from this Riyadh date.
+const RETENTION_TRACKING_START = '2026-11-01';
+// Renewals are monthly. A renewal is "due" this many days after joining (×n),
+// and is only judged after a grace period that covers automatic card retries.
+const BILLING_CYCLE_DAYS = 30;
+const RENEWAL_GRACE_DAYS = 10;
+
+function orderLines(o) {
+  return (o.lines && o.lines.length ? o.lines : o.lineSnapshots) || [];
+}
+
+function isOneTimeWash(o) {
+  const lines = orderLines(o);
+  if (!lines.some(l => l.lineKind === 'service')) return false;
+  if (lines.some(l => l.coveredBySubscription)) return false;
+  return !lines.some(l => NON_WASH_LINE_KINDS.includes(l.lineKind) || l.type === 'monthly_subscription');
+}
+
+/** Paid renewal orders per subscription code → sorted createdAt dates. */
+async function paidRenewalsBySubscription(subCodes) {
+  if (!subCodes.length) return new Map();
+  const orders = await mongoDb.collection('rushwash_sale_orders')
+    .find({
+      subscriptionReadableCode: { $in: subCodes },
+      subscriptionTransitionKind: { $in: ['renew', 'scheduled_renewal'] },
+      status: { $in: ONE_TIME_WASH_STATUSES },
+      netTotal: { $gt: 0 }
+    }, { projection: { subscriptionReadableCode: 1, createdAt: 1 } })
+    .sort({ createdAt: 1 })
+    .toArray();
+  const map = new Map();
+  for (const o of orders) {
+    if (!map.has(o.subscriptionReadableCode)) map.set(o.subscriptionReadableCode, []);
+    map.get(o.subscriptionReadableCode).push(o.createdAt);
+  }
+  return map;
+}
+
+/**
+ * Retention steps for members acquired by a funnel.
+ * A renewal step is "eligible" once it was reached or its due date + grace has passed;
+ * until then the member is "pending" for that step and excluded from its rate.
+ */
+async function buildRetention(members, now) {
+  const since = riyadhDate(RETENTION_TRACKING_START);
+  const tracked = members.filter(m => m.sub.createdAt >= since);
+  const renewals = await paidRenewalsBySubscription(tracked.map(m => m.sub.readableCode).filter(Boolean));
+  const steps = [1, 2].map(n => ({
+    id: `renewal${n}`,
+    label: n === 1 ? 'Paid 1st renewal' : 'Paid 2nd renewal',
+    description: `Renewal #${n} charged successfully (judged ${BILLING_CYCLE_DAYS * n + RENEWAL_GRACE_DAYS} days after joining)`,
+    reached: 0,
+    eligible: 0,
+    pending: 0
+  }));
+  let nextJudgedAt = null;
+  for (const m of tracked) {
+    const count = (renewals.get(m.sub.readableCode) || []).length;
+    steps.forEach((step, i) => {
+      const n = i + 1;
+      const judgeAt = new Date(m.sub.createdAt.getTime() + (BILLING_CYCLE_DAYS * n + RENEWAL_GRACE_DAYS) * DAY_MS);
+      const reached = count >= n;
+      if (reached || judgeAt <= now) {
+        step.eligible++;
+        if (reached) step.reached++;
+      } else {
+        step.pending++;
+        if (!nextJudgedAt || judgeAt < nextJudgedAt) nextJudgedAt = judgeAt;
+      }
+    });
+  }
+  return {
+    since: since.toISOString(),
+    members: tracked.length,
+    steps,
+    nextJudgedAt: nextJudgedAt ? nextJudgedAt.toISOString() : null
+  };
+}
+
+const WASH_FUNNELS = {
+  paid: {
+    isEntry: o => (o.netTotal || 0) > 0,
+    netFilter: { netTotal: { $gt: 0 } },
+    entryLabel: 'Paid wash',
+    entryDescription: 'First-ever paid one-time wash in the cohort range',
+    labels: { entered: 'Paid-wash customers', anchor: 'first paid wash', stalled: '' }
+  },
+  free: {
+    isEntry: o => !((o.netTotal || 0) > 0),
+    netFilter: { $or: [{ netTotal: { $lte: 0 } }, { netTotal: null }] },
+    entryLabel: 'Free wash',
+    entryDescription: 'First-ever free (coupon / promo) one-time wash in the cohort range',
+    labels: { entered: 'Free-wash customers', anchor: 'first free wash', stalled: '' }
+  }
+};
+
+function discountReason(lines) {
+  const d = lines.find(l => ['coupon', 'custom_discount', 'discount'].includes(l.lineKind));
+  return d?.displayNameEn?.replace(/^Coupon:\s*/, '') || null;
+}
+
+async function washEntryFunnel(kind, req, res) {
+  if (!funnelGuard(res)) return;
+  const params = parseFunnelQuery(req.query);
+  if (params.error) return res.status(400).json({ error: params.error });
+  const { from, to, windowDays, now } = params;
+  const cfg = WASH_FUNNELS[kind];
+
+  try {
+    // Candidate orders across all history up to the cohort end, so "first-ever" is judged correctly.
+    const orders = await mongoDb.collection('rushwash_sale_orders')
+      .find({
+        status: { $in: ONE_TIME_WASH_STATUSES },
+        subscriptionReadableCode: null,
+        isRenewal: { $ne: true },
+        customerId: { $ne: null },
+        createdAt: { $lte: to },
+        ...cfg.netFilter
+      }, { projection: { customerId: 1, createdAt: 1, netTotal: 1, lines: 1, lineSnapshots: 1, promotionAccept: 1 } })
+      .sort({ createdAt: 1 })
+      .toArray();
+
+    const firstByCustomer = new Map();
+    for (const o of orders) {
+      if (!cfg.isEntry(o) || !isOneTimeWash(o)) continue;
+      const key = String(o.customerId);
+      if (!firstByCustomer.has(key)) firstByCustomer.set(key, o);
+    }
+    const cohort = [...firstByCustomer.values()].filter(o => o.createdAt >= from && o.createdAt <= to);
+    const firstSub = await firstSubscriptionsByCustomer(cohort.map(o => o.customerId));
+
+    let excludedFormerMembers = 0;
+    const entrants = [];
+    const members = [];
+    for (const first of cohort) {
+      const start = first.createdAt;
+      const sub = firstSub.get(String(first.customerId)) || null;
+      // Membership before the entry wash (beyond a same-visit tolerance of 1 hour) → not a never-member.
+      if (sub && sub.createdAt < new Date(start.getTime() - 60 * 60000)) { excludedFormerMembers++; continue; }
+      if (sub && sub.createdAt <= new Date(start.getTime() + windowDays * DAY_MS)) members.push({ sub });
+
+      const lines = orderLines(first);
+      const service = lines.find(l => l.lineKind === 'service')?.displayNameEn || 'Unknown service';
+      const reason = discountReason(lines);
+      const segments = { service: [service, service] };
+      if (kind === 'paid') {
+        segments.price = reason || first.promotionAccept
+          ? ['discounted', 'Discounted (coupon / promo)'] : ['full', 'Full price'];
+      } else {
+        segments.offer = [reason || 'none', reason || 'No discount line recorded'];
+      }
+      entrants.push({
+        start,
+        sub,
+        progress: windowEnd => (sub && sub.createdAt <= windowEnd ? 1 : 0),
+        segments
+      });
+    }
+
+    const segmentDefs = [{ id: 'service', title: `By ${kind} wash service` }];
+    segmentDefs.push(kind === 'paid' ? { id: 'price', title: 'By price paid' } : { id: 'offer', title: 'By free-wash offer' });
+
+    const result = buildFunnel({
+      entrants,
+      params,
+      steps: [
+        { id: 'entry', label: cfg.entryLabel, description: cfg.entryDescription },
+        { id: 'member', label: 'Member', description: `Started a membership within ${windowDays} days` }
+      ],
+      segmentDefs,
+      stalledStep: null,
+      labels: cfg.labels
+    });
+    result.excludedFormerMembers = excludedFormerMembers;
+    result.retention = await buildRetention(members, now);
+    res.json(result);
+  } catch (e) {
+    console.warn(`[CRM Backend] ${kind}-wash funnel query error:`, e.message);
+    res.status(500).json({ error: 'Funnel query failed', detail: e.message });
+  }
+}
+
+app.get('/api/funnel/paid-wash-subscription', (req, res) => washEntryFunnel('paid', req, res));
+app.get('/api/funnel/free-wash-subscription', (req, res) => washEntryFunnel('free', req, res));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEMBER ENGAGEMENT: usage nudges & renewal reminders
+// Log: rushwash_engagement_log (local DB), written via POST /api/engagement/log
+// by whatever sends the message (the Unifonic app). Message text is not stored.
+// Usage rule (rolling last 7 days):
+//   • months 1–2 of membership (tenure < 60 days): needs ≥ 2 washes,
+//   • month 3 onward: needs ≥ 1 wash.
+//   Members in their first 7 days are not judged yet (no full 7-day window).
+// A usage nudge "worked" if the member washed within 7 days after it.
+// A renewal reminder "worked" if a paid renewal for that subscription followed
+// within 14 days after it.
+// ─────────────────────────────────────────────────────────────────────────────
+const ENGAGEMENT_COLLECTION = 'rushwash_engagement_log';
+const ENGAGEMENT_TYPES = ['usage_nudge', 'renewal_reminder'];
+const ENGAGEMENT_CHANNELS = ['whatsapp', 'sms', 'email', 'push', 'call'];
+const USAGE_LOOKBACK_DAYS = 7;
+const EARLY_TENURE_DAYS = 60;
+const NUDGE_SUCCESS_DAYS = 7;
+const REMINDER_SUCCESS_DAYS = 14;
+
+function last9Digits(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits.length >= 9 ? digits.slice(-9) : null;
+}
+
+app.post('/api/engagement/log', async (req, res) => {
+  const token = process.env.ENGAGEMENT_LOG_TOKEN;
+  if (token && req.get('x-engagement-token') !== token) return res.status(401).json({ error: 'Invalid engagement token' });
+  if (!funnelGuard(res)) return;
+
+  const b = req.body || {};
+  if (!ENGAGEMENT_TYPES.includes(b.type)) return res.status(400).json({ error: `type must be one of ${ENGAGEMENT_TYPES.join(', ')}` });
+  const channel = String(b.channel || 'whatsapp').toLowerCase();
+  if (!ENGAGEMENT_CHANNELS.includes(channel)) return res.status(400).json({ error: `channel must be one of ${ENGAGEMENT_CHANNELS.join(', ')}` });
+  if (!b.customerCode && !b.phone && !b.subscriptionCode) {
+    return res.status(400).json({ error: 'Provide customerCode, subscriptionCode or phone to identify the member' });
+  }
+  const sentAt = b.sentAt ? new Date(b.sentAt) : new Date();
+  if (isNaN(sentAt.getTime())) return res.status(400).json({ error: 'sentAt is not a valid date' });
+
+  try {
+    const customers = mongoDb.collection('rushwash_customers');
+    const subs = mongoDb.collection('rushwash_subscriptions');
+    let sub = b.subscriptionCode ? await subs.findOne({ readableCode: b.subscriptionCode, parentSubCode: null }, { projection: { readableCode: 1, customerId: 1 } }) : null;
+    let customer = null;
+    if (b.customerCode) customer = await customers.findOne({ readableCode: b.customerCode }, { projection: { readableCode: 1 } });
+    if (!customer && sub?.customerId) customer = await customers.findOne({ _id: sub.customerId }, { projection: { readableCode: 1 } });
+    if (!customer && last9Digits(b.phone)) customer = await customers.findOne({ normalizedPhone: last9Digits(b.phone) }, { projection: { readableCode: 1 } });
+    if (!sub && customer) {
+      sub = await subs.find({ customerId: customer._id, parentSubCode: null, status: 'active' }, { projection: { readableCode: 1 } })
+        .sort({ createdAt: -1 }).limit(1).next();
+    }
+
+    const doc = {
+      type: b.type,
+      channel,
+      sentAt,
+      customerId: customer?._id || null,
+      customerCode: customer?.readableCode || b.customerCode || null,
+      subscriptionCode: sub?.readableCode || b.subscriptionCode || null,
+      matched: !!customer,
+      template: b.template ? String(b.template).slice(0, 120) : null,
+      messageId: b.messageId ? String(b.messageId).slice(0, 120) : null,
+      deliveryStatus: b.status ? String(b.status).slice(0, 40) : null,
+      source: b.source ? String(b.source).slice(0, 60) : 'api',
+      createdAt: new Date()
+    };
+    const r = await mongoDb.collection(ENGAGEMENT_COLLECTION).insertOne(doc);
+    res.status(201).json({ id: String(r.insertedId), matched: doc.matched, customerCode: doc.customerCode, subscriptionCode: doc.subscriptionCode });
+  } catch (e) {
+    console.warn('[CRM Backend] Engagement log error:', e.message);
+    res.status(500).json({ error: 'Could not save engagement log', detail: e.message });
+  }
+});
+
+app.get('/api/engagement/summary', async (req, res) => {
+  if (!funnelGuard(res)) return;
+  const days = [7, 30, 90].includes(Number(req.query.days)) ? Number(req.query.days) : 30;
+  const now = new Date();
+  const since = new Date(now.getTime() - days * DAY_MS);
+  const lookback = new Date(now.getTime() - USAGE_LOOKBACK_DAYS * DAY_MS);
+
+  try {
+    const activeSubs = await mongoDb.collection('rushwash_subscriptions')
+      .find({ status: 'active', parentSubCode: null }, {
+        projection: { readableCode: 1, customerId: 1, createdAt: 1, renewalDate: 1, price: 1, packageNameEn: 1, packageReadableCode: 1, 'customerSnapshot.name': 1, 'customerSnapshot.readableCode': 1 }
+      })
+      .toArray();
+    const customerIds = activeSubs.map(s => s.customerId).filter(Boolean);
+
+    const hasLog = hasCol(ENGAGEMENT_COLLECTION);
+    const [washStats, logs, logStart] = await Promise.all([
+      mongoDb.collection('rushwash_wash_histories').aggregate([
+        { $match: { customerId: { $in: customerIds } } },
+        { $group: {
+          _id: '$customerId',
+          last: { $max: '$washDate' },
+          recent: { $sum: { $cond: [{ $gte: ['$washDate', lookback] }, 1, 0] } }
+        } }
+      ], { allowDiskUse: true }).toArray(),
+      hasLog ? mongoDb.collection(ENGAGEMENT_COLLECTION).find({ sentAt: { $gte: new Date(since.getTime() - REMINDER_SUCCESS_DAYS * DAY_MS) } }).toArray() : Promise.resolve([]),
+      hasLog ? mongoDb.collection(ENGAGEMENT_COLLECTION).find({}, { projection: { sentAt: 1 } }).sort({ sentAt: 1 }).limit(1).next() : Promise.resolve(null)
+    ]);
+    const washByCustomer = new Map(washStats.map(w => [String(w._id), w]));
+    const lastNudge = new Map();
+    const lastReminder = new Map();
+    for (const l of logs) {
+      if (l.type === 'usage_nudge' && l.customerCode) {
+        if (!lastNudge.has(l.customerCode) || l.sentAt > lastNudge.get(l.customerCode)) lastNudge.set(l.customerCode, l.sentAt);
+      }
+      if (l.type === 'renewal_reminder' && l.subscriptionCode) {
+        if (!lastReminder.has(l.subscriptionCode) || l.sentAt > lastReminder.get(l.subscriptionCode)) lastReminder.set(l.subscriptionCode, l.sentAt);
+      }
+    }
+
+    // 1) Who needs a usage nudge right now
+    const tiers = {
+      early: { label: `Months 1–2 (needs 2+ washes / ${USAGE_LOOKBACK_DAYS} days)`, members: 0, needNudge: 0 },
+      established: { label: `Month 3+ (needs 1+ wash / ${USAGE_LOOKBACK_DAYS} days)`, members: 0, needNudge: 0 }
+    };
+    let notYetJudged = 0;
+    const candidates = [];
+    for (const s of activeSubs) {
+      const tenureDays = (now - s.createdAt) / DAY_MS;
+      if (tenureDays < USAGE_LOOKBACK_DAYS) { notYetJudged++; continue; }
+      const tierId = tenureDays < EARLY_TENURE_DAYS ? 'early' : 'established';
+      const target = tierId === 'early' ? 2 : 1;
+      const w = washByCustomer.get(String(s.customerId));
+      const recent = w?.recent || 0;
+      tiers[tierId].members++;
+      if (recent >= target) continue;
+      tiers[tierId].needNudge++;
+      const code = s.customerSnapshot?.readableCode || null;
+      candidates.push({
+        subscriptionCode: s.readableCode,
+        customerCode: code,
+        customer: s.customerSnapshot?.name || 'Customer',
+        package: s.packageNameEn || s.packageReadableCode || '—',
+        tier: tierId,
+        tenureDays: Math.floor(tenureDays),
+        washesLast7Days: recent,
+        target,
+        lastWashAt: w?.last ? w.last.toISOString() : null,
+        lastNudgeAt: code && lastNudge.get(code) ? lastNudge.get(code).toISOString() : null
+      });
+    }
+    // Longest without a wash first.
+    candidates.sort((a, b) => (a.lastWashAt || '').localeCompare(b.lastWashAt || ''));
+
+    // 2) Nudge & reminder effectiveness over the period
+    const inPeriod = logs.filter(l => l.sentAt >= since);
+    const nudges = inPeriod.filter(l => l.type === 'usage_nudge');
+    const reminders = inPeriod.filter(l => l.type === 'renewal_reminder');
+
+    const nudgeJudgeable = nudges.filter(l => l.customerId && l.sentAt <= new Date(now.getTime() - NUDGE_SUCCESS_DAYS * DAY_MS));
+    let nudgeWins = 0;
+    if (nudgeJudgeable.length) {
+      const nudgeWashes = await mongoDb.collection('rushwash_wash_histories')
+        .find({ customerId: { $in: nudgeJudgeable.map(l => l.customerId) }, washDate: { $gte: since } }, { projection: { customerId: 1, washDate: 1 } })
+        .toArray();
+      const byCust = new Map();
+      for (const w of nudgeWashes) {
+        const k = String(w.customerId);
+        if (!byCust.has(k)) byCust.set(k, []);
+        byCust.get(k).push(w.washDate);
+      }
+      for (const l of nudgeJudgeable) {
+        const end = new Date(l.sentAt.getTime() + NUDGE_SUCCESS_DAYS * DAY_MS);
+        if ((byCust.get(String(l.customerId)) || []).some(d => d > l.sentAt && d <= end)) nudgeWins++;
+      }
+    }
+
+    const reminderJudgeable = reminders.filter(l => l.subscriptionCode && l.sentAt <= new Date(now.getTime() - REMINDER_SUCCESS_DAYS * DAY_MS));
+    let reminderWins = 0;
+    if (reminderJudgeable.length) {
+      const renewals = await paidRenewalsBySubscription([...new Set(reminderJudgeable.map(l => l.subscriptionCode))]);
+      for (const l of reminderJudgeable) {
+        const end = new Date(l.sentAt.getTime() + REMINDER_SUCCESS_DAYS * DAY_MS);
+        if ((renewals.get(l.subscriptionCode) || []).some(d => d >= l.sentAt && d <= end)) reminderWins++;
+      }
+    }
+
+    // 3) Renewals due in the next 7 days, and whether they were reminded
+    const dueEnd = new Date(now.getTime() + 7 * DAY_MS);
+    const remindWindowStart = new Date(now.getTime() - 10 * DAY_MS);
+    const renewalsDue = activeSubs
+      .filter(s => s.renewalDate && s.renewalDate >= now && s.renewalDate <= dueEnd)
+      .map(s => {
+        const r = lastReminder.get(s.readableCode);
+        return {
+          subscriptionCode: s.readableCode,
+          customerCode: s.customerSnapshot?.readableCode || null,
+          customer: s.customerSnapshot?.name || 'Customer',
+          package: s.packageNameEn || s.packageReadableCode || '—',
+          price: s.price || 0,
+          renewalDate: s.renewalDate.toISOString(),
+          remindedAt: r && r >= remindWindowStart ? r.toISOString() : null
+        };
+      })
+      .sort((a, b) => a.renewalDate.localeCompare(b.renewalDate));
+
+    res.json({
+      generatedAt: now.toISOString(),
+      timezone: 'Asia/Riyadh',
+      periodDays: days,
+      logStartedAt: logStart?.sentAt ? logStart.sentAt.toISOString() : null,
+      rules: {
+        lookbackDays: USAGE_LOOKBACK_DAYS,
+        earlyTenureDays: EARLY_TENURE_DAYS,
+        nudgeSuccessDays: NUDGE_SUCCESS_DAYS,
+        reminderSuccessDays: REMINDER_SUCCESS_DAYS
+      },
+      activeMembers: activeSubs.length,
+      notYetJudged,
+      tiers,
+      nudgeCandidates: { total: candidates.length, items: candidates.slice(0, 100) },
+      nudges: { sent: nudges.length, unmatched: nudges.filter(l => !l.matched).length, judgeable: nudgeJudgeable.length, worked: nudgeWins },
+      reminders: { sent: reminders.length, unmatched: reminders.filter(l => !l.matched).length, judgeable: reminderJudgeable.length, worked: reminderWins },
+      renewalsDue: {
+        total: renewalsDue.length,
+        reminded: renewalsDue.filter(r => r.remindedAt).length,
+        mrr: renewalsDue.reduce((a, r) => a + r.price, 0),
+        items: renewalsDue.slice(0, 100)
+      }
+    });
+  } catch (e) {
+    console.warn('[CRM Backend] Engagement summary error:', e.message);
+    res.status(500).json({ error: 'Engagement summary failed', detail: e.message });
+  }
+});
+
 // Serve Vite production build assets and SPA routes (including /cancel)
 const distPath = path.join(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
-  app.get('*', (req, res, next) => {
+  app.get('/{*splat}', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
     res.sendFile(path.join(distPath, 'index.html'));
   });

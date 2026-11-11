@@ -4,7 +4,10 @@ import {
   UserCheck, 
   Users, 
   Gauge,
-  FileText
+  FileText,
+  Filter,
+  Gift,
+  BellRing
 } from 'lucide-react';
 import { 
   Granularity, 
@@ -20,12 +23,18 @@ import { RetentionAndValue } from '../tables/CohortRetentionTable';
 import { WashUsageDashboard } from '../charts/WashUsageDashboard';
 import { SalesTeamPerformance } from '../sales/SalesTeamPerformance';
 import { KpiGuideView } from './KpiGuideView';
+import { SignupConversionFunnel, PaidWashConversionFunnel, FreeWashConversionFunnel } from '../charts/ConversionFunnel';
+import { EngagementDashboard } from '../charts/EngagementDashboard';
 
 export type AnalyticsSubTab = 
   | 'sales' 
   | 'memberships' 
   | 'team' 
   | 'usage'
+  | 'funnel'
+  | 'free_funnel'
+  | 'paid_funnel'
+  | 'engagement'
   | 'kpi_guide';
 
 interface AnalyticsHubProps {
@@ -60,6 +69,10 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
     { id: 'memberships', label: 'Membership, Churn & Retention', icon: UserCheck, badge: 'Retention' },
     { id: 'team', label: 'Sales Team', icon: Users },
     { id: 'usage', label: 'Wash Usage & Fleet', icon: Gauge },
+    { id: 'funnel', label: 'Signup Funnel', icon: Filter, badge: 'New' },
+    { id: 'free_funnel', label: 'Free Wash Funnel', icon: Gift, badge: 'New' },
+    { id: 'paid_funnel', label: 'Paid Wash Funnel', icon: Filter, badge: 'New' },
+    { id: 'engagement', label: 'Nudges & Reminders', icon: BellRing, badge: 'New' },
     { id: 'kpi_guide', label: 'KPI Guide (.md)', icon: FileText, badge: 'Docs' },
   ];
 
@@ -179,7 +192,35 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
         </div>
       )}
 
-      {/* 5. KPI CALCULATION GUIDE (.MD) */}
+      {/* 5. SIGNUP → SUBSCRIPTION FUNNEL (self-fetching; uses its own cohort + window filters) */}
+      {activeSubTab === 'funnel' && (
+        <div className="animate-in fade-in duration-150">
+          <SignupConversionFunnel />
+        </div>
+      )}
+
+      {/* FREE WASH → MEMBER FUNNEL */}
+      {activeSubTab === 'free_funnel' && (
+        <div className="animate-in fade-in duration-150">
+          <FreeWashConversionFunnel />
+        </div>
+      )}
+
+      {/* MEMBER ENGAGEMENT: NUDGES & REMINDERS */}
+      {activeSubTab === 'engagement' && (
+        <div className="animate-in fade-in duration-150">
+          <EngagementDashboard />
+        </div>
+      )}
+
+      {/* 6. PAID WASH → SUBSCRIPTION FUNNEL */}
+      {activeSubTab === 'paid_funnel' && (
+        <div className="animate-in fade-in duration-150">
+          <PaidWashConversionFunnel />
+        </div>
+      )}
+
+      {/* 7. KPI CALCULATION GUIDE (.MD) */}
       {activeSubTab === 'kpi_guide' && (
         <KpiGuideView />
       )}

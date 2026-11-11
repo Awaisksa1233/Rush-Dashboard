@@ -10,7 +10,10 @@ import {
   Users,
   Flag,
   Sparkles,
-  FileText
+  FileText,
+  Filter,
+  Gift,
+  BellRing,
 } from 'lucide-react';
 import { ActiveDomainTab } from './DashboardHeader';
 import productionData from '../../data/productionCrmData.json';
@@ -54,6 +57,10 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
     { id: 'memberships', label: 'Memberships & Churn', icon: UserCheck, count: validCount },
     { id: 'retention', label: 'Retention & Save Flows', icon: Sparkles, badge: 'Churnkey' },
     { id: 'usage', label: 'Wash Usage & Fleet', icon: Gauge, alert: true },
+    { id: 'funnel', label: 'Signup Funnel', icon: Filter },
+    { id: 'free_funnel', label: 'Free Wash Funnel', icon: Gift },
+    { id: 'paid_funnel', label: 'Paid Wash Funnel', icon: Filter },
+    { id: 'engagement', label: 'Nudges & Reminders', icon: BellRing },
     { id: 'baremetrics', label: 'Baremetrics SaaS', icon: Layers, badge: 'SaaS' },
   ];
 
@@ -62,6 +69,10 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
     { id: 'memberships', label: 'Membership, Churn & Retention', icon: UserCheck, count: validCount },
     { id: 'team', label: 'Sales Team', icon: Users },
     { id: 'usage', label: 'Wash Usage', icon: Gauge },
+    { id: 'funnel', label: 'Signup Funnel', icon: Filter },
+    { id: 'free_funnel', label: 'Free Wash Funnel', icon: Gift },
+    { id: 'paid_funnel', label: 'Paid Wash Funnel', icon: Filter },
+    { id: 'engagement', label: 'Nudges & Reminders', icon: BellRing },
     { id: 'kpi_guide', label: 'KPI Guide (.md)', icon: FileText, badge: 'Docs' },
   ];
 

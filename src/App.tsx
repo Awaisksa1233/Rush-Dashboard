@@ -30,6 +30,8 @@ import { CancellationFlowModal } from './components/cancellation/CancellationFlo
 import { CustomerCancelPage } from './components/cancellation/CustomerCancelPage';
 import { DrilldownModal } from './components/modals/DrilldownModal';
 import { AnalyticsHub, AnalyticsSubTab } from './components/analytics/AnalyticsHub';
+import { SignupConversionFunnel, PaidWashConversionFunnel, FreeWashConversionFunnel } from './components/charts/ConversionFunnel';
+import { EngagementDashboard } from './components/charts/EngagementDashboard';
 
 export function App() {
   // Path / Route state (handles /cancel, /v1, and /)
@@ -92,9 +94,11 @@ export function App() {
       const q = new URLSearchParams(window.location.search).get('tab');
       if (p.includes('/analytics') || h.includes('analytics') || q === 'analytics') {
         setActiveDomain('analytics');
+      } else if (q && ['funnel', 'free_funnel', 'paid_funnel', 'engagement'].includes(q) && !p.startsWith('/v1')) {
+        setActiveDomain(q as ActiveDomainTab);
       }
-      const sub = new URLSearchParams(window.location.search).get('sub');
-      if (sub && ['sales', 'memberships', 'team', 'usage', 'kpi_guide'].includes(sub)) {
+      const sub =new URLSearchParams(window.location.search).get('sub');
+      if (sub && ['sales', 'memberships', 'team', 'usage', 'funnel', 'free_funnel', 'paid_funnel', 'engagement', 'kpi_guide'].includes(sub)) {
         setAnalyticsSubTab(sub as AnalyticsSubTab);
       }
     }
@@ -383,6 +387,34 @@ export function App() {
         {activeDomain === 'retention' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <RetentionDashboard onOpenCancelModalForMember={(m) => setCancelModalMember(m)} />
+          </div>
+        )}
+
+        {/* SIGNUP → SUBSCRIPTION FUNNEL (own cohort + window filters) */}
+        {activeDomain === 'funnel' && (
+          <div className="animate-in fade-in duration-150">
+            <SignupConversionFunnel />
+          </div>
+        )}
+
+        {/* FREE WASH → MEMBER FUNNEL */}
+        {activeDomain === 'free_funnel' && (
+          <div className="animate-in fade-in duration-150">
+            <FreeWashConversionFunnel />
+          </div>
+        )}
+
+        {/* MEMBER ENGAGEMENT: NUDGES & REMINDERS */}
+        {activeDomain === 'engagement' && (
+          <div className="animate-in fade-in duration-150">
+            <EngagementDashboard />
+          </div>
+        )}
+
+        {/* PAID WASH → SUBSCRIPTION FUNNEL */}
+        {activeDomain === 'paid_funnel' && (
+          <div className="animate-in fade-in duration-150">
+            <PaidWashConversionFunnel />
           </div>
         )}
 

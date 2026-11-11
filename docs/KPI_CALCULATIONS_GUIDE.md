@@ -156,3 +156,115 @@ A business-level summary of how Key Performance Indicators (KPIs) are defined an
 - **Note on Winbacks**: Winbacks ($\ge 60$ days lapsed) are tracked and rewarded as a high-value volume KPI and column on the leaderboard, keeping $CR_{\text{new}}$ isolated to new acquisition.
 
 
+
+---
+
+## 6. Signup → Subscription Funnel
+
+Endpoint: `GET /api/funnel/signup-subscription?from=YYYY-MM-DD&to=YYYY-MM-DD&window=7|30|60|90` (dates in Riyadh time, UTC+3). UI: **Analytics Hub → Signup Funnel**.
+
+### Cohort and conversion window
+- **Cohort**: customers in `rushwash_customers` whose `createdAt` falls in `[from, to]`.
+- **Window ($W$)**: each customer is followed for $W$ days from *their own* signup time.
+- **Mature customers only**: a customer enters the rates only once $\text{signup} + W \le \text{now}$. Customers still inside their window are reported separately ("still in window") so recent cohorts do not look like drop-off.
+- **Tracking floor**: `from` is clamped to **2026-07-23**, when membership records start in `rushwash_subscriptions`. Earlier cohorts would show ~0% conversion because of missing data, not customer behaviour.
+
+### Steps (cumulative)
+| # | Step | Customer reaches it when… |
+|---|------|---------------------------|
+| 1 | Signed up | account created in the cohort range |
+| 2 | Came back | ≥ 1 wash in `rushwash_wash_histories` within $W$ days, **or** subscribed within $W$ |
+| 3 | Repeat visitor | ≥ 2 washes within $W$ days, **or** subscribed within $W$ |
+| 4 | Subscribed | first top-level subscription (`parentSubCode: null`) created within $W$ days |
+
+Steps are cumulative because ~1 in 3 members subscribe at signup, before any wash is logged; a strict wash → repeat → subscribe order would undercount them. A wash logged up to 1 day before the account record still counts (same-visit tolerance).
+
+$$\text{Step conversion}_n = \frac{\text{Customers at step } n}{\text{Customers at step } n-1} \qquad \text{Overall conversion} = \frac{\text{Subscribed}}{\text{Signed up}}$$
+
+### Time to subscribe
+Days from customer `createdAt` to first subscription `createdAt` (negative lags from back-dated records are floored at 0). Reported as median / P75 / P95 and buckets: signup day (< 1 day), 1–7, 8–30, 31+.
+
+### MRR at stake
+$$\text{MRR at stake} = \text{Repeat visitors who never subscribed} \times \overline{\text{first-membership price}}$$
+An upper bound on recoverable monthly recurring revenue, not a forecast.
+
+### Segments (signup funnel)
+- **Signup source**: `createdByShopId` set → branch signup; `createdById = "portal-signup"` → online portal; otherwise "source not recorded".
+- **First visit type**: `planType` of the customer's first wash (exterior vs interior), or "no wash recorded".
+
+---
+
+## 7. Free Wash / Paid Wash → Member → Retained Funnels
+
+Endpoints: `GET /api/funnel/free-wash-subscription` and `GET /api/funnel/paid-wash-subscription` (same `from` / `to` / `window` parameters as section 6). UI: **Free Wash Funnel** and **Paid Wash Funnel** tabs.
+
+Both use the same engine as section 6: a cohort by entry date in Riyadh time, a per-customer window $W$, mature-only rates with "still in window" reported separately, and a tracking floor of 2026-07-23.
+
+### One-time wash (entry event)
+A `rushwash_sale_orders` document that:
+- has `status` in `paid`, `active`, `checked_in`,
+- has no `subscriptionReadableCode` and `isRenewal ≠ true`,
+- contains a `service` line, **no** line with `coveredBySubscription`, and **no** `package` / `monthly_subscription`, `wallet_top_up` or `gift_card` line.
+
+| Funnel | Entry wash |
+|--------|------------|
+| Free wash | one-time wash with `netTotal ≤ 0` (coupon, promo, custom discount) |
+| Paid wash | one-time wash with `netTotal > 0` (discounted washes count if anything was paid) |
+
+### Cohort
+- Customers whose **first-ever** wash of that kind falls in `[from, to]`, judged against full order history.
+- **Never-members only**: customers whose first subscription was created more than 1 hour before the entry wash are excluded (`excludedFormerMembers`).
+
+### Steps
+| # | Step | Customer reaches it when… |
+|---|------|---------------------------|
+| 1 | Free / Paid wash | first-ever wash of that kind in the cohort range |
+| 2 | Member | first top-level subscription created within $W$ days of the entry wash |
+| R1 | Paid 1st renewal | member's 1st paid renewal order (`subscriptionTransitionKind` `renew`, `netTotal > 0`, status paid / active / checked_in) |
+| R2 | Paid 2nd renewal | member's 2nd paid renewal order |
+
+### Retention steps (R1, R2)
+- Only members acquired by the funnel who **joined on or after 2026-11-01** (Riyadh) are counted.
+- Renewal $n$ is due $30n$ days after joining. It is judged $30n + 10$ days after joining, which leaves a 10-day grace period for automatic card retries.
+- $\text{Retention}_n = \dfrac{\text{members who paid renewal } n}{\text{members judged for renewal } n}$, where *judged* = paid it already **or** past the judge date. Members not yet judged are shown as *pending*.
+- The first results appear around 12 Dec 2026 (1st renewal) and 11 Jan 2027 (2nd renewal).
+
+### Segments
+- **Service**: `displayNameEn` of the entry order's service line.
+- **Free funnel – offer**: name of the coupon / discount line (e.g. *Free 1st Wash*, *FIRSTWASH Snapshot*).
+- **Paid funnel – price paid**: *discounted* if the order has a coupon / discount line or a `promotionAccept`, otherwise *full price*.
+
+---
+
+## 8. Usage Nudges & Renewal Reminders
+
+Endpoints: `GET /api/engagement/summary?days=7|30|90`, `POST /api/engagement/log`. UI: **Nudges & Reminders** tab.
+
+### Who needs a usage nudge (right now)
+For each active top-level membership, count washes in the **last 7 days**:
+
+| Membership age | Needs a nudge when… |
+|----------------|---------------------|
+| Months 1–2 (joined < 60 days ago) | fewer than **2** washes in the last 7 days |
+| Month 3 onward | fewer than **1** wash in the last 7 days |
+
+Members who joined less than 7 days ago are not judged yet, because they don't have a full 7-day window.
+
+### Engagement log (`rushwash_engagement_log`)
+Written by `POST /api/engagement/log`. The Unifonic app calls it when a message is sent with **Purpose = Usage nudge / Renewal reminder**.
+
+| Field | Meaning |
+|-------|---------|
+| `type` | `usage_nudge` or `renewal_reminder` |
+| `channel` | `whatsapp`, `sms`, `email`, `push`, `call` |
+| `sentAt` | send time (defaults to now) |
+| `customerCode`, `subscriptionCode`, `customerId` | the member, resolved from the customer code, subscription code, or phone (last 9 digits → `normalizedPhone`) |
+| `matched` | whether a customer was found |
+| `messageId`, `deliveryStatus`, `template`, `source` | send metadata. **Message text is not stored.** |
+
+If `ENGAGEMENT_LOG_TOKEN` is set on the API, callers must send it in the `x-engagement-token` header.
+
+### Effectiveness
+- **Nudge worked** = the member washed within **7 days** after the nudge. Only nudges at least 7 days old are judged.
+- **Reminder worked** = a paid renewal for that subscription followed within **14 days** after the reminder. Only reminders at least 14 days old are judged.
+- **Renewals due** = active memberships with `renewalDate` in the next 7 days. *Reminded* = a renewal reminder was logged for that subscription in the last 10 days.

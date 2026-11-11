@@ -30,6 +30,7 @@ from unifonic_app.config import (
 )
 from unifonic_app.models import parse_unifonic_event, extract_phone_number
 from unifonic_app.storage import storage
+from unifonic_app.engagement import log_engagement
 from unifonic_app.unifonic_client import (
     send_whatsapp_message,
     get_messages_status,
@@ -128,10 +129,17 @@ class LoginRequest(BaseModel):
 
 class ReplyRequest(BaseModel):
     text: str
+    # Optional engagement tagging: "usage_nudge" | "renewal_reminder" (anything else = normal chat, not logged)
+    purpose: Optional[str] = None
+    customer_code: Optional[str] = None
+    subscription_code: Optional[str] = None
 
 class StartChatRequest(BaseModel):
     phone: str
     initial_message: Optional[str] = None
+    purpose: Optional[str] = None
+    customer_code: Optional[str] = None
+    subscription_code: Optional[str] = None
 
 class SettingsRequest(BaseModel):
     public_id: Optional[str] = None
@@ -336,6 +344,12 @@ async def send_reply(phone: str, req: ReplyRequest):
     msg_id = result.get("message_id")
     error_str = result.get("error")
 
+    engagement = None
+    if req.purpose and result.get("success"):
+        engagement = await asyncio.to_thread(
+            log_engagement, clean_phone, req.purpose, msg_id, status_str, req.customer_code, req.subscription_code
+        )
+
     saved_doc = storage.save_outbound_message(
         phone=clean_phone,
         text=req.text.strip(),
@@ -359,7 +373,8 @@ async def send_reply(phone: str, req: ReplyRequest):
         "status": status_str,
         "message_id": msg_id,
         "error": error_str,
-        "saved_message": saved_doc
+        "saved_message": saved_doc,
+        "engagement": engagement
     }
 
 @app.post("/api/conversations/start")
@@ -369,6 +384,7 @@ async def start_conversation(req: StartChatRequest):
         return JSONResponse(status_code=400, content={"error": "Invalid phone number."})
 
     saved_doc = None
+    engagement = None
     if req.initial_message and req.initial_message.strip():
         result = send_whatsapp_message(
             to_phone=clean_phone,
@@ -384,6 +400,11 @@ async def start_conversation(req: StartChatRequest):
             status=result.get("status", "SENT"),
             error=result.get("error")
         )
+        if req.purpose and result.get("success"):
+            engagement = await asyncio.to_thread(
+                log_engagement, clean_phone, req.purpose, result.get("message_id"), result.get("status", "SENT"),
+                req.customer_code, req.subscription_code
+            )
 
     try:
         asyncio.create_task(broadcaster.broadcast({
@@ -393,7 +414,7 @@ async def start_conversation(req: StartChatRequest):
     except Exception as be:
         logger.debug(f"Broadcast error: {be}")
 
-    return {"status": "ok", "phone": clean_phone, "message": saved_doc}
+    return {"status": "ok", "phone": clean_phone, "message": saved_doc, "engagement": engagement}
 
 # --- Delivery Reports & Analytics API Endpoints ---
 

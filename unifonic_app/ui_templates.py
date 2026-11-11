@@ -960,6 +960,15 @@ def full_solution_ui(public_https_url: str, unifonic_public_id: str, unifonic_ch
             border-color: var(--wa-green-primary);
         }}
 
+        .purpose-select {{
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.06);
+            color: inherit;
+        }}
+        .purpose-select option {{ color: #111; }}
         .composer-input-row {{
             display: flex;
             align-items: flex-end;
@@ -1636,6 +1645,13 @@ def full_solution_ui(public_https_url: str, unifonic_public_id: str, unifonic_ch
                         <span class="chip-template" onclick="insertTemplate('تم استلام طلبك وجاري معالجته في أقرب وقت ⏱️')">⏱️ استلام الطلب</span>
                         <span class="chip-template" onclick="insertTemplate('تقدر تتابع تفاصيل اشتراكك وغسيلك عبر تطبيق RushWash أو موقعنا rush.com.sa')">📲 رابط التطبيق</span>
                         <span class="chip-template" onclick="insertTemplate('شكراً لتواصلك مع RushWash. نسعد دائماً بخدمتك!')">🙏 شكراً لتواصلك</span>
+                        <span class="chip-template" onclick="insertTemplate('نفتقدك في RushWash 🚗✨ اشتراكك فعّال، مرّ علينا هالأسبوع واستمتع بغسيلك!'); setPurpose('usage_nudge')">🚿 تذكير بالغسيل</span>
+                        <span class="chip-template" onclick="insertTemplate('تذكير: يتجدد اشتراكك في RushWash قريباً 🔁 تأكد أن بطاقتك المحفوظة صالحة لتستمر غسيلاتك بدون انقطاع.'); setPurpose('renewal_reminder')">🔁 تذكير بالتجديد</span>
+                        <select class="purpose-select" id="reply-purpose" title="Tag this message so the CRM can measure it">
+                            <option value="">Chat (not logged)</option>
+                            <option value="usage_nudge">Usage nudge</option>
+                            <option value="renewal_reminder">Renewal reminder</option>
+                        </select>
                     </div>
 
                     <div class="composer-input-row">
@@ -1911,6 +1927,18 @@ def full_solution_ui(public_https_url: str, unifonic_public_id: str, unifonic_ch
             <div class="form-group">
                 <label>Initial Message (Optional)</label>
                 <textarea class="form-control" id="new-initial-msg" dir="auto" rows="3" placeholder="Type opening message..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Message Purpose (logged to CRM for nudge / reminder tracking)</label>
+                <select class="form-control" id="new-purpose">
+                    <option value="">Chat (not logged)</option>
+                    <option value="usage_nudge">Usage nudge</option>
+                    <option value="renewal_reminder">Renewal reminder</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Customer / Subscription Code (optional, improves matching)</label>
+                <input type="text" class="form-control" id="new-member-code" dir="ltr" placeholder="e.g. CUS-01234 or SUB-05678" autocomplete="off">
             </div>
             <div class="modal-actions">
                 <button class="btn-action" onclick="closeNewChatModal()">Cancel</button>
@@ -2301,7 +2329,7 @@ def full_solution_ui(public_https_url: str, unifonic_public_id: str, unifonic_ch
                 const res = await fetch(`/api/conversations/${{activePhone}}/reply`, {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ text: text }})
+                    body: JSON.stringify({{ text: text, purpose: document.getElementById('reply-purpose').value || null }})
                 }});
                 const data = await res.json();
                 if (!res.ok || !data.success) {{
@@ -2310,6 +2338,8 @@ def full_solution_ui(public_https_url: str, unifonic_public_id: str, unifonic_ch
                     openSettingsModal();
                 }} else {{
                     input.value = '';
+                    if (data.engagement && !data.engagement.logged) console.warn('Sent, but not logged to CRM:', data.engagement.reason);
+                    setPurpose('');
                 }}
                 await loadMessages(activePhone);
                 await loadConversations(true);
@@ -2523,6 +2553,22 @@ def full_solution_ui(public_https_url: str, unifonic_public_id: str, unifonic_ch
             }} catch (e) {{}}
         }}
 
+        // --- ENGAGEMENT TAGGING (usage nudges / renewal reminders → CRM log) ---
+        function setPurpose(value) {{
+            const sel = document.getElementById('reply-purpose');
+            if (sel) sel.value = value;
+        }}
+        function buildStartChatPayload(phone, msg) {{
+            const purpose = document.getElementById('new-purpose').value || null;
+            const code = document.getElementById('new-member-code').value.trim();
+            const payload = {{ phone: phone, initial_message: msg, purpose: purpose }};
+            if (code) {{
+                if (/^SUB/i.test(code)) payload.subscription_code = code.toUpperCase();
+                else payload.customer_code = code.toUpperCase();
+            }}
+            return payload;
+        }}
+
         // --- MODALS & HELPERS ---
         function openNewChatModal() {{
             document.getElementById('new-chat-modal').style.display = 'flex';
@@ -2539,7 +2585,7 @@ def full_solution_ui(public_https_url: str, unifonic_public_id: str, unifonic_ch
             const res = await fetch('/api/conversations/start', {{
                 method: 'POST',
                 headers: {{ 'Content-Type': 'application/json' }},
-                body: JSON.stringify({{ phone: phone, initial_message: msg }})
+                body: JSON.stringify(buildStartChatPayload(phone, msg))
             }});
             const data = await res.json();
             closeNewChatModal();

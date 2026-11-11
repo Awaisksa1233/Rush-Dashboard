@@ -714,3 +714,23 @@ export async function updateAdminRetentionConfig(config: Partial<AdminRetentionC
 
 
 
+export async function fetchConversionFunnel(
+  kind: import('../types/dashboard').FunnelKind,
+  params: { from?: string; to?: string; windowDays: number }
+): Promise<import('../types/dashboard').ConversionFunnelData> {
+  const query = new URLSearchParams({ window: String(params.windowDays) });
+  if (params.from) query.set('from', params.from);
+  if (params.to) query.set('to', params.to);
+  const res = await fetch(`${API_BASE}/funnel/${kind}?${query.toString()}`);
+  const body = await res.json().catch(() => ({}));
+  // No synthetic fallback here: a funnel built from sample data would be misleading.
+  if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+  return body;
+}
+
+export async function fetchEngagementSummary(days: number): Promise<import('../types/dashboard').EngagementSummary> {
+  const res = await fetch(`${API_BASE}/engagement/summary?days=${days}`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+  return body;
+}

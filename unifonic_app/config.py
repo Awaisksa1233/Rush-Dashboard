@@ -50,3 +50,10 @@ SESSION_SECRET = os.getenv("SESSION_SECRET", "rushwash-whatsapp-auth-secret-key-
 LOGS_DIR = APP_DIR / "logs"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 JSONL_LOG_PATH = LOGS_DIR / "whatsapp_events.jsonl"
+
+# CRM engagement logging (usage nudges & renewal reminders)
+# Base URL of the Rush CRM API, e.g. http://localhost:3001. Empty = logging disabled.
+# Messages tagged with a purpose are POSTed to {CRM_API_URL}/api/engagement/log.
+CRM_API_URL = os.getenv("CRM_API_URL", "").rstrip("/")
+# Optional shared secret; must match ENGAGEMENT_LOG_TOKEN on the CRM API if set there.
+ENGAGEMENT_LOG_TOKEN = os.getenv("ENGAGEMENT_LOG_TOKEN", "")
