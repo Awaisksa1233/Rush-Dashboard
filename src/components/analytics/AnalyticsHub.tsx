@@ -4,7 +4,8 @@ import {
   UserCheck, 
   Users, 
   Gauge,
-  FileText
+  FileText,
+  Filter
 } from 'lucide-react';
 import { 
   Granularity, 
@@ -20,12 +21,14 @@ import { RetentionAndValue } from '../tables/CohortRetentionTable';
 import { WashUsageDashboard } from '../charts/WashUsageDashboard';
 import { SalesTeamPerformance } from '../sales/SalesTeamPerformance';
 import { KpiGuideView } from './KpiGuideView';
+import { SignupConversionFunnel } from '../charts/SignupConversionFunnel';
 
 export type AnalyticsSubTab = 
   | 'sales' 
   | 'memberships' 
   | 'team' 
   | 'usage'
+  | 'funnel'
   | 'kpi_guide';
 
 interface AnalyticsHubProps {
@@ -60,6 +63,7 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
     { id: 'memberships', label: 'Membership, Churn & Retention', icon: UserCheck, badge: 'Retention' },
     { id: 'team', label: 'Sales Team', icon: Users },
     { id: 'usage', label: 'Wash Usage & Fleet', icon: Gauge },
+    { id: 'funnel', label: 'Signup Funnel', icon: Filter, badge: 'New' },
     { id: 'kpi_guide', label: 'KPI Guide (.md)', icon: FileText, badge: 'Docs' },
   ];
 
@@ -179,7 +183,14 @@ export const AnalyticsHub: React.FC<AnalyticsHubProps> = ({
         </div>
       )}
 
-      {/* 5. KPI CALCULATION GUIDE (.MD) */}
+      {/* 5. SIGNUP → SUBSCRIPTION FUNNEL (self-fetching; uses its own cohort + window filters) */}
+      {activeSubTab === 'funnel' && (
+        <div className="animate-in fade-in duration-150">
+          <SignupConversionFunnel />
+        </div>
+      )}
+
+      {/* 6. KPI CALCULATION GUIDE (.MD) */}
       {activeSubTab === 'kpi_guide' && (
         <KpiGuideView />
       )}

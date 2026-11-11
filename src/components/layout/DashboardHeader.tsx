@@ -16,13 +16,14 @@ import {
   UserCheck, 
   ShoppingBag, 
   Gauge,
+  Filter,
   Layers,
   Users,
   ShieldCheck,
   FileText
 } from 'lucide-react';
 
-export type ActiveDomainTab = 'glance' | 'analytics' | 'revenue' | 'sales' | 'team' | 'memberships' | 'retention' | 'usage' | 'baremetrics';
+export type ActiveDomainTab = 'glance' | 'analytics' | 'revenue' | 'sales' | 'team' | 'memberships' | 'retention' | 'usage' | 'funnel' | 'baremetrics';
 
 interface DashboardHeaderProps {
   activeDomain: ActiveDomainTab;
@@ -89,6 +90,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         { id: 'memberships', label: 'Memberships & Churn', icon: UserCheck },
         { id: 'retention', label: 'Retention & Save Flows', icon: ShieldCheck },
         { id: 'usage', label: 'Wash Usage', icon: Gauge },
+        { id: 'funnel', label: 'Signup Funnel', icon: Filter },
         { id: 'baremetrics', label: 'Baremetrics SaaS', icon: Layers },
       ];
 

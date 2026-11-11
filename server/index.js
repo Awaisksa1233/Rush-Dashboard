@@ -2009,6 +2009,206 @@ app.get('/api/retention/metrics', (req, res) => {
 app.post('/api/cancellation-flow/evaluate', (req, res) => {
   res.redirect(307, '/api/cancellation/session/start');
 });
+// ─────────────────────────────────────────────────────────────────────────────
+// SIGNUP → SUBSCRIPTION CONVERSION FUNNEL
+// Cohort = customers whose account was created in [from, to] (Riyadh dates).
+// Each customer gets `window` days from signup to progress. Only customers whose
+// window has fully elapsed ("mature") enter the conversion rates; the rest are
+// reported separately as "still in window" so open cohorts don't look like drop-off.
+// Steps are cumulative (reaching a later step implies the earlier ones) because
+// ~1/3 of subscribers subscribe at signup, before any wash is recorded.
+// ─────────────────────────────────────────────────────────────────────────────
+const DAY_MS = 86400000;
+const RIYADH_OFFSET = '+03:00';
+// Memberships only start appearing in rushwash_subscriptions at volume from this
+// Riyadh date (go-live of subscription tracking). Cohorts before it would show
+// ~0% conversion purely because of missing data, so `from` is clamped to it.
+const SUBSCRIPTION_TRACKING_START = '2026-07-23';
+
+function riyadhDate(ymd, endOfDay = false) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd || '')) return null;
+  const d = new Date(`${ymd}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}${RIYADH_OFFSET}`);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function riyadhMonth(date) {
+  return new Date(date.getTime() + 3 * 3600000).toISOString().slice(0, 7);
+}
+
+function percentile(sorted, p) {
+  if (!sorted.length) return null;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1));
+  return sorted[idx];
+}
+
+function emptyCounts() {
+  return { signedUp: 0, visited: 0, repeat: 0, subscribed: 0 };
+}
+
+app.get('/api/funnel/signup-subscription', async (req, res) => {
+  if (!isMongoConnected || !mongoDb || !hasCol('rushwash_customers')) {
+    return res.status(503).json({ error: 'Funnel needs the MongoDB connection (local copy). Database is offline.' });
+  }
+
+  const windowDays = [7, 30, 60, 90].includes(Number(req.query.window)) ? Number(req.query.window) : 30;
+  const now = new Date();
+  const defaultTo = new Date(now.getTime() - windowDays * DAY_MS);
+  const defaultFrom = new Date(defaultTo.getTime() - 180 * DAY_MS);
+  const trackingStart = riyadhDate(SUBSCRIPTION_TRACKING_START);
+  const requestedFrom = riyadhDate(req.query.from) || defaultFrom;
+  const from = requestedFrom < trackingStart ? trackingStart : requestedFrom;
+  const to = riyadhDate(req.query.to, true) || defaultTo;
+  if (from > to) return res.status(400).json({ error: '`from` must be on or before `to`.' });
+
+  try {
+    const customers = await mongoDb.collection('rushwash_customers')
+      .find({ createdAt: { $gte: from, $lte: to } }, { projection: { createdAt: 1, createdByShopId: 1, createdById: 1 } })
+      .toArray();
+    const ids = customers.map(c => c._id);
+
+    const [subs, washAgg, shops] = await Promise.all([
+      mongoDb.collection('rushwash_subscriptions')
+        .find({ customerId: { $in: ids }, parentSubCode: null }, { projection: { customerId: 1, createdAt: 1, price: 1 } })
+        .toArray(),
+      mongoDb.collection('rushwash_wash_histories').aggregate([
+        { $match: { customerId: { $in: ids }, washDate: { $gte: new Date(from.getTime() - DAY_MS) } } },
+        { $sort: { washDate: 1 } },
+        { $group: { _id: '$customerId', dates: { $push: '$washDate' }, firstPlan: { $first: '$planType' } } },
+        { $project: { dates: { $slice: ['$dates', 3] }, firstPlan: 1 } }
+      ], { allowDiskUse: true }).toArray(),
+      hasCol('rushwash_shops')
+        ? mongoDb.collection('rushwash_shops').find({}, { projection: { readableCode: 1, name: 1 } }).toArray()
+        : Promise.resolve([])
+    ]);
+
+    const shopName = new Map(shops.map(s => [s.readableCode, s.name?.en || s.readableCode]));
+    const firstSub = new Map();
+    for (const s of subs) {
+      const key = String(s.customerId);
+      const prev = firstSub.get(key);
+      if (!prev || s.createdAt < prev.createdAt) firstSub.set(key, s);
+    }
+    const washes = new Map(washAgg.map(w => [String(w._id), w]));
+
+    const overall = emptyCounts();
+    const inWindow = emptyCounts();
+    const bySource = new Map();
+    const byPlan = new Map();
+    const byMonth = new Map();
+    const lagsDays = [];
+    const lagBuckets = { sameDay: 0, d1to7: 0, d8to30: 0, d31plus: 0 };
+    const subPrices = [];
+    let repeatNotSubscribed = 0;
+
+    const bump = (map, key, label, progress) => {
+      if (!map.has(key)) map.set(key, { key, label, ...emptyCounts() });
+      const row = map.get(key);
+      row.signedUp++;
+      if (progress >= 1) row.visited++;
+      if (progress >= 2) row.repeat++;
+      if (progress >= 3) row.subscribed++;
+    };
+
+    for (const c of customers) {
+      const key = String(c._id);
+      const signup = c.createdAt;
+      const windowEnd = new Date(signup.getTime() + windowDays * DAY_MS);
+      const mature = windowEnd <= now;
+
+      const sub = firstSub.get(key);
+      const subInWindow = sub && sub.createdAt <= windowEnd;
+      const w = washes.get(key);
+      // Same-day tolerance: a wash logged up to 1 day before the account record still counts.
+      const washCount = w ? w.dates.filter(d => d >= new Date(signup.getTime() - DAY_MS) && d <= windowEnd).length : 0;
+
+      const progress = subInWindow ? 3 : washCount >= 2 ? 2 : washCount >= 1 ? 1 : 0;
+      const target = mature ? overall : inWindow;
+      target.signedUp++;
+      if (progress >= 1) target.visited++;
+      if (progress >= 2) target.repeat++;
+      if (progress >= 3) target.subscribed++;
+
+      const month = riyadhMonth(signup);
+      if (!byMonth.has(month)) byMonth.set(month, { month, ...emptyCounts(), mature: 0, pending: 0 });
+      const m = byMonth.get(month);
+      if (mature) {
+        m.mature++;
+        m.signedUp++;
+        if (progress >= 3) m.subscribed++;
+      } else {
+        m.pending++;
+      }
+
+      if (!mature) continue;
+
+      const shop = c.createdByShopId;
+      const sourceKey = shop || (c.createdById === 'portal-signup' ? 'portal' : 'unknown');
+      const sourceLabel = shop ? `Branch signup - ${shopName.get(shop) || shop}`
+        : sourceKey === 'portal' ? 'Online portal signup' : 'Source not recorded';
+      bump(bySource, sourceKey, sourceLabel, progress);
+      const plan = w?.firstPlan;
+      bump(byPlan, plan || 'none',
+        plan === 'exterior_wash' ? 'First visit: exterior wash'
+          : plan === 'interior_cleaning' ? 'First visit: interior cleaning'
+            : 'No wash recorded', progress);
+
+      if (progress === 2) repeatNotSubscribed++;
+      if (subInWindow) {
+        const lag = Math.max(0, (sub.createdAt - signup) / DAY_MS);
+        lagsDays.push(lag);
+        if (lag < 1) lagBuckets.sameDay++;
+        else if (lag <= 7) lagBuckets.d1to7++;
+        else if (lag <= 30) lagBuckets.d8to30++;
+        else lagBuckets.d31plus++;
+        if (typeof sub.price === 'number' && sub.price > 0) subPrices.push(sub.price);
+      }
+    }
+
+    lagsDays.sort((a, b) => a - b);
+    const avgSubPrice = subPrices.length ? subPrices.reduce((a, b) => a + b, 0) / subPrices.length : 0;
+    const round1 = v => (v == null ? null : Math.round(v * 10) / 10);
+
+    res.json({
+      generatedAt: now.toISOString(),
+      timezone: 'Asia/Riyadh',
+      cohort: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        windowDays,
+        trackingStart: trackingStart.toISOString(),
+        clampedToTrackingStart: requestedFrom < trackingStart
+      },
+      steps: [
+        { id: 'signedUp', label: 'Signed up', description: 'Customer account created in the cohort range', users: overall.signedUp },
+        { id: 'visited', label: 'Came back', description: `At least 1 wash (or subscribed) within ${windowDays} days`, users: overall.visited },
+        { id: 'repeat', label: 'Repeat visitor', description: `2+ washes (or subscribed) within ${windowDays} days`, users: overall.repeat },
+        { id: 'subscribed', label: 'Subscribed', description: `Started a membership within ${windowDays} days`, users: overall.subscribed }
+      ],
+      inWindow,
+      timeToConvert: {
+        converters: lagsDays.length,
+        medianDays: round1(percentile(lagsDays, 0.5)),
+        p75Days: round1(percentile(lagsDays, 0.75)),
+        p95Days: round1(percentile(lagsDays, 0.95)),
+        buckets: lagBuckets
+      },
+      opportunity: {
+        repeatNotSubscribed,
+        avgSubscriptionPrice: Math.round(avgSubPrice),
+        monthlyRevenueAtStake: Math.round(repeatNotSubscribed * avgSubPrice)
+      },
+      segments: {
+        source: [...bySource.values()].sort((a, b) => b.signedUp - a.signedUp),
+        firstVisit: [...byPlan.values()].sort((a, b) => b.signedUp - a.signedUp)
+      },
+      monthly: [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month))
+    });
+  } catch (e) {
+    console.warn('[CRM Backend] Funnel query error:', e.message);
+    res.status(500).json({ error: 'Funnel query failed', detail: e.message });
+  }
+});
+
 // Serve Vite production build assets and SPA routes (including /cancel)
 const distPath = path.join(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {

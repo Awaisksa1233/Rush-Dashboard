@@ -30,6 +30,7 @@ import { CancellationFlowModal } from './components/cancellation/CancellationFlo
 import { CustomerCancelPage } from './components/cancellation/CustomerCancelPage';
 import { DrilldownModal } from './components/modals/DrilldownModal';
 import { AnalyticsHub, AnalyticsSubTab } from './components/analytics/AnalyticsHub';
+import { SignupConversionFunnel } from './components/charts/SignupConversionFunnel';
 
 export function App() {
   // Path / Route state (handles /cancel, /v1, and /)
@@ -92,9 +93,11 @@ export function App() {
       const q = new URLSearchParams(window.location.search).get('tab');
       if (p.includes('/analytics') || h.includes('analytics') || q === 'analytics') {
         setActiveDomain('analytics');
+      } else if (q === 'funnel' && !p.startsWith('/v1')) {
+        setActiveDomain('funnel');
       }
-      const sub = new URLSearchParams(window.location.search).get('sub');
-      if (sub && ['sales', 'memberships', 'team', 'usage', 'kpi_guide'].includes(sub)) {
+      const sub =new URLSearchParams(window.location.search).get('sub');
+      if (sub && ['sales', 'memberships', 'team', 'usage', 'funnel', 'kpi_guide'].includes(sub)) {
         setAnalyticsSubTab(sub as AnalyticsSubTab);
       }
     }
@@ -383,6 +386,13 @@ export function App() {
         {activeDomain === 'retention' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <RetentionDashboard onOpenCancelModalForMember={(m) => setCancelModalMember(m)} />
+          </div>
+        )}
+
+        {/* SIGNUP → SUBSCRIPTION FUNNEL (own cohort + window filters) */}
+        {activeDomain === 'funnel' && (
+          <div className="animate-in fade-in duration-150">
+            <SignupConversionFunnel />
           </div>
         )}
 

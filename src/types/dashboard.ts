@@ -504,3 +504,36 @@ export interface SpecificationMetricsSummary {
   adminConfig: AdminRetentionConfig;
 }
 
+
+// ── Signup → Subscription conversion funnel ──────────────────────────────────
+export type FunnelStepId = 'signedUp' | 'visited' | 'repeat' | 'subscribed';
+
+export interface FunnelStageCounts {
+  signedUp: number;
+  visited: number;
+  repeat: number;
+  subscribed: number;
+}
+
+export interface FunnelSegmentRow extends FunnelStageCounts {
+  key: string;
+  label: string;
+}
+
+export interface SignupFunnelData {
+  generatedAt: string;
+  timezone: string;
+  cohort: { from: string; to: string; windowDays: number; trackingStart: string; clampedToTrackingStart: boolean };
+  steps: { id: FunnelStepId; label: string; description: string; users: number }[];
+  inWindow: FunnelStageCounts;
+  timeToConvert: {
+    converters: number;
+    medianDays: number | null;
+    p75Days: number | null;
+    p95Days: number | null;
+    buckets: { sameDay: number; d1to7: number; d8to30: number; d31plus: number };
+  };
+  opportunity: { repeatNotSubscribed: number; avgSubscriptionPrice: number; monthlyRevenueAtStake: number };
+  segments: { source: FunnelSegmentRow[]; firstVisit: FunnelSegmentRow[] };
+  monthly: { month: string; signedUp: number; subscribed: number; mature: number; pending: number }[];
+}

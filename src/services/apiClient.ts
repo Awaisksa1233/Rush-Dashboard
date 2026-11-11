@@ -714,3 +714,13 @@ export async function updateAdminRetentionConfig(config: Partial<AdminRetentionC
 
 
 
+export async function fetchSignupFunnel(params: { from?: string; to?: string; windowDays: number }): Promise<import('../types/dashboard').SignupFunnelData> {
+  const query = new URLSearchParams({ window: String(params.windowDays) });
+  if (params.from) query.set('from', params.from);
+  if (params.to) query.set('to', params.to);
+  const res = await fetch(`${API_BASE}/funnel/signup-subscription?${query.toString()}`);
+  const body = await res.json().catch(() => ({}));
+  // No synthetic fallback here: a funnel built from sample data would be misleading.
+  if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+  return body;
+}

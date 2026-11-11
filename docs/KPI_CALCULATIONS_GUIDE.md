@@ -156,3 +156,38 @@ A business-level summary of how Key Performance Indicators (KPIs) are defined an
 - **Note on Winbacks**: Winbacks ($\ge 60$ days lapsed) are tracked and rewarded as a high-value volume KPI and column on the leaderboard, keeping $CR_{\text{new}}$ isolated to new acquisition.
 
 
+
+---
+
+## 6. Signup → Subscription Funnel
+
+Endpoint: `GET /api/funnel/signup-subscription?from=YYYY-MM-DD&to=YYYY-MM-DD&window=7|30|60|90` (dates in Riyadh time, UTC+3). UI: **Analytics Hub → Signup Funnel**.
+
+### Cohort and conversion window
+- **Cohort**: customers in `rushwash_customers` whose `createdAt` falls in `[from, to]`.
+- **Window ($W$)**: each customer is followed for $W$ days from *their own* signup time.
+- **Mature customers only**: a customer enters the rates only once $\text{signup} + W \le \text{now}$. Customers still inside their window are reported separately ("still in window") so recent cohorts do not look like drop-off.
+- **Tracking floor**: `from` is clamped to **2026-07-23**, when membership records start in `rushwash_subscriptions`. Earlier cohorts would show ~0% conversion because of missing data, not customer behaviour.
+
+### Steps (cumulative)
+| # | Step | Customer reaches it when… |
+|---|------|---------------------------|
+| 1 | Signed up | account created in the cohort range |
+| 2 | Came back | ≥ 1 wash in `rushwash_wash_histories` within $W$ days, **or** subscribed within $W$ |
+| 3 | Repeat visitor | ≥ 2 washes within $W$ days, **or** subscribed within $W$ |
+| 4 | Subscribed | first top-level subscription (`parentSubCode: null`) created within $W$ days |
+
+Steps are cumulative because ~1 in 3 members subscribe at signup, before any wash is logged; a strict wash → repeat → subscribe order would undercount them. A wash logged up to 1 day before the account record still counts (same-visit tolerance).
+
+$$\text{Step conversion}_n = \frac{\text{Customers at step } n}{\text{Customers at step } n-1} \qquad \text{Overall conversion} = \frac{\text{Subscribed}}{\text{Signed up}}$$
+
+### Time to subscribe
+Days from customer `createdAt` to first subscription `createdAt` (negative lags from back-dated records are floored at 0). Reported as median / P75 / P95 and buckets: signup day (< 1 day), 1–7, 8–30, 31+.
+
+### MRR at stake
+$$\text{MRR at stake} = \text{Repeat visitors who never subscribed} \times \overline{\text{first-membership price}}$$
+An upper bound on recoverable monthly recurring revenue, not a forecast.
+
+### Segments
+- **Signup source**: `createdByShopId` set → branch signup; `createdById = "portal-signup"` → online portal; otherwise "source not recorded".
+- **First visit type**: `planType` of the customer's first wash (exterior vs interior), or "no wash recorded".
