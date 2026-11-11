@@ -17,13 +17,15 @@ import {
   ShoppingBag, 
   Gauge,
   Filter,
+  Gift,
+  BellRing,
   Layers,
   Users,
   ShieldCheck,
   FileText
 } from 'lucide-react';
 
-export type ActiveDomainTab = 'glance' | 'analytics' | 'revenue' | 'sales' | 'team' | 'memberships' | 'retention' | 'usage' | 'funnel' | 'baremetrics';
+export type ActiveDomainTab = 'glance' | 'analytics' | 'revenue' | 'sales' | 'team' | 'memberships' | 'retention' | 'usage' | 'funnel' | 'free_funnel' | 'paid_funnel' | 'engagement' | 'baremetrics';
 
 interface DashboardHeaderProps {
   activeDomain: ActiveDomainTab;
@@ -91,6 +93,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         { id: 'retention', label: 'Retention & Save Flows', icon: ShieldCheck },
         { id: 'usage', label: 'Wash Usage', icon: Gauge },
         { id: 'funnel', label: 'Signup Funnel', icon: Filter },
+        { id: 'free_funnel', label: 'Free Wash Funnel', icon: Gift },
+        { id: 'paid_funnel', label: 'Paid Wash Funnel', icon: Filter },
+        { id: 'engagement', label: 'Nudges & Reminders', icon: BellRing },
         { id: 'baremetrics', label: 'Baremetrics SaaS', icon: Layers },
       ];
 

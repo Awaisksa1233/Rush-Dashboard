@@ -505,27 +505,22 @@ export interface SpecificationMetricsSummary {
 }
 
 
-// ── Signup → Subscription conversion funnel ──────────────────────────────────
-export type FunnelStepId = 'signedUp' | 'visited' | 'repeat' | 'subscribed';
-
-export interface FunnelStageCounts {
-  signedUp: number;
-  visited: number;
-  repeat: number;
-  subscribed: number;
-}
-
-export interface FunnelSegmentRow extends FunnelStageCounts {
+// ── Conversion funnels (shared shape for every /api/funnel/* endpoint) ───────
+export interface FunnelSegmentRow {
   key: string;
   label: string;
+  /** Customers reaching each step, aligned with `steps`. */
+  counts: number[];
 }
 
-export interface SignupFunnelData {
+export interface ConversionFunnelData {
   generatedAt: string;
   timezone: string;
   cohort: { from: string; to: string; windowDays: number; trackingStart: string; clampedToTrackingStart: boolean };
-  steps: { id: FunnelStepId; label: string; description: string; users: number }[];
-  inWindow: FunnelStageCounts;
+  /** entered: noun for step-1 customers; anchor: the entry event; stalled: noun for the MRR-at-stake group. */
+  labels: { entered: string; anchor: string; stalled: string };
+  steps: { id: string; label: string; description: string; users: number }[];
+  inWindow: { entered: number; subscribed: number };
   timeToConvert: {
     converters: number;
     medianDays: number | null;
@@ -533,7 +528,57 @@ export interface SignupFunnelData {
     p95Days: number | null;
     buckets: { sameDay: number; d1to7: number; d8to30: number; d31plus: number };
   };
-  opportunity: { repeatNotSubscribed: number; avgSubscriptionPrice: number; monthlyRevenueAtStake: number };
-  segments: { source: FunnelSegmentRow[]; firstVisit: FunnelSegmentRow[] };
-  monthly: { month: string; signedUp: number; subscribed: number; mature: number; pending: number }[];
+  /** Null for funnels without an intermediate intent step (free / paid wash → member). */
+  opportunity: { stalled: number; stalledLabel: string; avgSubscriptionPrice: number; monthlyRevenueAtStake: number } | null;
+  segments: { id: string; title: string; rows: FunnelSegmentRow[] }[];
+  monthly: { month: string; entered: number; subscribed: number; mature: number; pending: number }[];
+  /** Wash funnels: customers dropped because they were members before their entry wash. */
+  excludedFormerMembers?: number;
+  /** Wash funnels: renewal steps for members acquired by this funnel who joined on/after `since`. */
+  retention?: FunnelRetention;
+}
+
+export interface FunnelRetention {
+  since: string;
+  members: number;
+  /** eligible = reached or past due + grace; pending = not judgeable yet. Rate = reached / eligible. */
+  steps: { id: string; label: string; description: string; reached: number; eligible: number; pending: number }[];
+  nextJudgedAt: string | null;
+}
+
+export type FunnelKind = 'signup-subscription' | 'free-wash-subscription' | 'paid-wash-subscription';
+
+// ── Member engagement: usage nudges & renewal reminders ──────────────────────
+export interface EngagementSummary {
+  generatedAt: string;
+  timezone: string;
+  periodDays: number;
+  logStartedAt: string | null;
+  rules: { lookbackDays: number; earlyTenureDays: number; nudgeSuccessDays: number; reminderSuccessDays: number };
+  activeMembers: number;
+  notYetJudged: number;
+  tiers: Record<'early' | 'established', { label: string; members: number; needNudge: number }>;
+  nudgeCandidates: {
+    total: number;
+    items: {
+      subscriptionCode: string;
+      customerCode: string | null;
+      customer: string;
+      package: string;
+      tier: 'early' | 'established';
+      tenureDays: number;
+      washesLast7Days: number;
+      target: number;
+      lastWashAt: string | null;
+      lastNudgeAt: string | null;
+    }[];
+  };
+  nudges: { sent: number; unmatched: number; judgeable: number; worked: number };
+  reminders: { sent: number; unmatched: number; judgeable: number; worked: number };
+  renewalsDue: {
+    total: number;
+    reminded: number;
+    mrr: number;
+    items: { subscriptionCode: string; customerCode: string | null; customer: string; package: string; price: number; renewalDate: string; remindedAt: string | null }[];
+  };
 }

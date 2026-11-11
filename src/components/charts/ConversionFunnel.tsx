@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownRight, Clock, Hourglass, RefreshCw, Target, TrendingUp, Users } from 'lucide-react';
-import { FunnelSegmentRow, SignupFunnelData } from '../../types/dashboard';
-import { fetchSignupFunnel } from '../../services/apiClient';
+import { AlertTriangle, ArrowDownRight, Clock, Hourglass, RefreshCw, Repeat, Target, TrendingUp, Users } from 'lucide-react';
+import { ConversionFunnelData, FunnelKind, FunnelRetention, FunnelSegmentRow } from '../../types/dashboard';
+import { fetchConversionFunnel } from '../../services/apiClient';
 import { formatSAR } from '../../services/analyticsService';
 import { InfoTooltip } from '../common/Tooltip';
 
@@ -12,6 +12,39 @@ const COHORT_OPTIONS = [
   { id: '90', label: 'Last 90 days', days: 90 },
   { id: 'all', label: 'Since tracking began', days: null },
 ] as const;
+
+/** Per-funnel copy. All numbers and step definitions come from the API. */
+interface FunnelConfig {
+  title: string;
+  intro: string;
+  infoTooltip: string;
+  cohortFilterLabel: string;
+  stepNote: string;
+}
+
+const FUNNEL_CONFIG: Record<FunnelKind, FunnelConfig> = {
+  'signup-subscription': {
+    title: 'Signup → Subscription Funnel',
+    intro: 'How new customers become members',
+    infoTooltip: 'Cohort view: customers who created an account in the selected range, followed for N days after their own signup date. Only customers whose window has fully closed are counted in the rates.',
+    cohortFilterLabel: 'Signups',
+    stepNote: 'Steps are cumulative: a customer who subscribes at signup also counts as “came back” and “repeat visitor”, because many members subscribe before their first recorded wash.',
+  },
+  'free-wash-subscription': {
+    title: 'Free Wash → Member Funnel',
+    intro: 'How customers who get a free (coupon / promo) wash become members, and whether they stay',
+    infoTooltip: 'Cohort view: never-members whose first-ever free one-time wash (net = 0 via coupon, promo or custom discount; not a member-covered wash) falls in the selected range, followed for N days after that wash. Retention steps cover members who joined from 1 Nov 2026.',
+    cohortFilterLabel: 'First free wash',
+    stepNote: 'Member = started a membership within the window after the first free wash. Retention steps only count members who joined from the retention start date; each renewal is judged once it is due plus a 10-day retry grace period.',
+  },
+  'paid-wash-subscription': {
+    title: 'Paid Wash → Member Funnel',
+    intro: 'How customers who pay for a single wash become members, and whether they stay',
+    infoTooltip: 'Cohort view: never-members whose first-ever paid one-time wash (net > 0, no membership, wallet or gift-card line, not member-covered) falls in the selected range, followed for N days after that wash. Retention steps cover members who joined from 1 Nov 2026.',
+    cohortFilterLabel: 'First paid wash',
+    stepNote: 'Member = started a membership within the window after the first paid wash. Retention steps only count members who joined from the retention start date; each renewal is judged once it is due plus a 10-day retry grace period.',
+  },
+};
 
 const pct = (num: number, den: number) => (den > 0 ? (num / den) * 100 : 0);
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
@@ -31,10 +64,11 @@ function monthLabel(ym: string): string {
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' });
 }
 
-export const SignupConversionFunnel: React.FC = () => {
+export const ConversionFunnel: React.FC<{ kind: FunnelKind }> = ({ kind }) => {
+  const config = FUNNEL_CONFIG[kind];
   const [windowDays, setWindowDays] = useState<number>(30);
   const [cohortId, setCohortId] = useState<(typeof COHORT_OPTIONS)[number]['id']>('all');
-  const [data, setData] = useState<SignupFunnelData | null>(null);
+  const [data, setData] = useState<ConversionFunnelData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -44,14 +78,14 @@ export const SignupConversionFunnel: React.FC = () => {
     const cohort = COHORT_OPTIONS.find(c => c.id === cohortId)!;
     try {
       // Cohort ends today; customers whose window hasn't closed are reported as "still in window".
-      setData(await fetchSignupFunnel({ from: riyadhYmd(cohort.days ?? 3650), to: riyadhYmd(0), windowDays }));
+      setData(await fetchConversionFunnel(kind, { from: riyadhYmd(cohort.days ?? 3650), to: riyadhYmd(0), windowDays }));
     } catch (e: any) {
       setError(e?.message || 'Could not load funnel');
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [cohortId, windowDays]);
+  }, [kind, cohortId, windowDays]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -68,7 +102,8 @@ export const SignupConversionFunnel: React.FC = () => {
       };
     });
     const leak = steps.slice(1).reduce((worst, s) => (s.lost > (worst?.lost ?? -1) ? s : worst), null as (typeof steps)[number] | null);
-    return { steps, top, leak, overall: pct(steps[steps.length - 1]?.users || 0, top) };
+    const last = steps[steps.length - 1];
+    return { steps, top, leak, last, overall: pct(last?.users || 0, top) };
   }, [data]);
 
   return (
@@ -78,22 +113,22 @@ export const SignupConversionFunnel: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="font-display font-bold text-base text-slate-900">Signup → Subscription Funnel</h3>
-              <InfoTooltip text="Cohort view: customers who created an account in the selected range, followed for N days after their own signup date. Only customers whose window has fully closed are counted in the rates." />
+              <h3 className="font-display font-bold text-base text-slate-900">{config.title}</h3>
+              <InfoTooltip text={config.infoTooltip} />
             </div>
             <p className="text-xs text-slate-500 mt-1">
               {data
                 ? <>
-                    Signups {fmtRiyadhDate(data.cohort.from)} – {fmtRiyadhDate(data.cohort.to)} · {data.cohort.windowDays}-day conversion window · Riyadh time
+                    {config.cohortFilterLabel} {fmtRiyadhDate(data.cohort.from)} – {fmtRiyadhDate(data.cohort.to)} · {data.cohort.windowDays}-day conversion window · Riyadh time
                     {data.cohort.clampedToTrackingStart && (
-                      <span className="block text-slate-400">Starts at {fmtRiyadhDate(data.cohort.trackingStart)}, when membership tracking went live; earlier signups have no subscription records.</span>
+                      <span className="block text-slate-400">Starts at {fmtRiyadhDate(data.cohort.trackingStart)}, when membership tracking went live; earlier records have no subscription data.</span>
                     )}
                   </>
-                : 'How new customers become members'}
+                : config.intro}
             </p>
           </div>
           <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 shrink-0">
-            <label className="text-[11px] font-semibold text-slate-500 uppercase">Signups</label>
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">{config.cohortFilterLabel}</label>
             <select
               value={cohortId}
               onChange={e => setCohortId(e.target.value as typeof cohortId)}
@@ -144,22 +179,26 @@ export const SignupConversionFunnel: React.FC = () => {
         <>
           {/* KPI row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi icon={Users} label="Signups (window closed)" value={fmtInt(derived.top)}
-              sub={`${fmtInt(data.inWindow.signedUp)} more still inside window`} />
-            <Kpi icon={Target} label="Signup → subscription" value={fmtPct(derived.overall)}
-              sub={`${fmtInt(data.steps[3].users)} new members`} accent />
+            <Kpi icon={Users} label={`${data.labels.entered} (window closed)`} value={fmtInt(derived.top)}
+              sub={`${fmtInt(data.inWindow.entered)} more still inside window`} />
+            <Kpi icon={Target} label={`${data.steps[0].label} → subscription`} value={fmtPct(derived.overall)}
+              sub={`${fmtInt(derived.last.users)} new members`} accent />
             <Kpi icon={Clock} label="Median time to subscribe" value={data.timeToConvert.medianDays == null ? '—' : `${data.timeToConvert.medianDays} d`}
-              sub={`${fmtPct(pct(data.timeToConvert.buckets.sameDay, data.timeToConvert.converters))} subscribe on signup day`} />
-            <Kpi icon={TrendingUp} label="MRR at stake" value={formatSAR(data.opportunity.monthlyRevenueAtStake, true)}
-              sub={`${fmtInt(data.opportunity.repeatNotSubscribed)} repeat visitors × ${formatSAR(data.opportunity.avgSubscriptionPrice)} avg`}
-              tooltip="Customers who washed 2+ times in the window but never subscribed, multiplied by the average first-membership price of those who did. An upper bound on monthly recurring revenue, not a forecast." />
+              sub={`${fmtPct(pct(data.timeToConvert.buckets.sameDay, data.timeToConvert.converters))} subscribe on ${data.labels.anchor} day`} />
+            {data.opportunity ? (
+              <Kpi icon={TrendingUp} label="MRR at stake" value={formatSAR(data.opportunity.monthlyRevenueAtStake, true)}
+                sub={`${fmtInt(data.opportunity.stalled)} ${data.opportunity.stalledLabel} × ${formatSAR(data.opportunity.avgSubscriptionPrice)} avg`}
+                tooltip={`Customers who reached “${data.steps[data.steps.length - 2]?.label}” in the window but never subscribed, multiplied by the average first-membership price of those who did. An upper bound on monthly recurring revenue, not a forecast.`} />
+            ) : data.retention ? (
+              <RetentionKpi retention={data.retention} />
+            ) : null}
           </div>
 
           {/* Funnel bars */}
           <div className="glass-card rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-display font-bold text-sm text-slate-900">Conversion by step</h4>
-              <span className="text-[11px] text-slate-400">Bar length = share of all signups</span>
+              <span className="text-[11px] text-slate-400">Bar length = share of step 1</span>
             </div>
             <div className="space-y-3">
               {derived.steps.map((s, i) => (
@@ -171,7 +210,7 @@ export const SignupConversionFunnel: React.FC = () => {
                       {derived.leak?.id === s.id && <span className="ml-1 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200">Biggest leak</span>}
                     </div>
                   )}
-                  <div className="grid grid-cols-12 items-center gap-3 group" title={`${s.label}: ${fmtInt(s.users)} customers · ${fmtPct(s.overallPct)} of signups · ${fmtPct(s.stepPct)} of previous step`}>
+                  <div className="grid grid-cols-12 items-center gap-3 group" title={`${s.label}: ${fmtInt(s.users)} customers · ${fmtPct(s.overallPct)} of step 1 · ${fmtPct(s.stepPct)} of previous step`}>
                     <div className="col-span-12 sm:col-span-3">
                       <div className="text-xs font-semibold text-slate-800">{i + 1}. {s.label}</div>
                       <div className="text-[11px] text-slate-500 leading-tight">{s.description}</div>
@@ -192,52 +231,122 @@ export const SignupConversionFunnel: React.FC = () => {
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-slate-400 mt-4">
-              Steps are cumulative: a customer who subscribes at signup also counts as “came back” and “repeat visitor”, because many members subscribe before their first recorded wash.
-            </p>
+            {data.retention && <RetentionRows retention={data.retention} />}
+            <p className="text-[11px] text-slate-400 mt-4">{config.stepNote}</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Monthly cohort trend */}
             <div className="lg:col-span-7 glass-card rounded-xl p-5">
-              <h4 className="font-display font-bold text-sm text-slate-900 mb-1">Conversion by signup month</h4>
-              <p className="text-[11px] text-slate-500 mb-4">Share of each month's signups who subscribed within {data.cohort.windowDays} days. Striped = some customers still inside their window.</p>
+              <h4 className="font-display font-bold text-sm text-slate-900 mb-1">Conversion by {data.labels.anchor} month</h4>
+              <p className="text-[11px] text-slate-500 mb-4">Share of each month's cohort who subscribed within {data.cohort.windowDays} days. Striped = some customers still inside their window.</p>
               <MonthlyBars rows={data.monthly} />
             </div>
 
             {/* Time to convert */}
             <div className="lg:col-span-5 glass-card rounded-xl p-5">
-              <h4 className="font-display font-bold text-sm text-slate-900 mb-1">Time from signup to subscription</h4>
+              <h4 className="font-display font-bold text-sm text-slate-900 mb-1">Time from {data.labels.anchor} to subscription</h4>
               <p className="text-[11px] text-slate-500 mb-4">
                 {fmtInt(data.timeToConvert.converters)} converters · P75 {data.timeToConvert.p75Days ?? '—'} d · P95 {data.timeToConvert.p95Days ?? '—'} d
               </p>
-              <LagBars buckets={data.timeToConvert.buckets} total={data.timeToConvert.converters} windowDays={data.cohort.windowDays} />
+              <LagBars buckets={data.timeToConvert.buckets} total={data.timeToConvert.converters} windowDays={data.cohort.windowDays} anchor={data.labels.anchor} />
             </div>
           </div>
 
           {/* Segments */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SegmentTable title="By signup source" rows={data.segments.source} />
-            <SegmentTable title="By first visit type" rows={data.segments.firstVisit} />
+          <div className={`grid grid-cols-1 gap-6 ${data.segments.length >= 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+            {data.segments.map(seg => (
+              <SegmentTable key={seg.id} title={seg.title} rows={seg.rows} steps={data.steps.map(s => s.label)} />
+            ))}
           </div>
 
-          {data.inWindow.signedUp > 0 && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 px-1">
-              <Hourglass className="w-3.5 h-3.5" />
-              {fmtInt(data.inWindow.signedUp)} recent signups are still inside their {data.cohort.windowDays}-day window
-              ({fmtInt(data.inWindow.subscribed)} subscribed so far) and are excluded from the rates above.
-            </div>
-          )}
+          <div className="space-y-1 px-1">
+            {data.inWindow.entered > 0 && (
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Hourglass className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  {fmtInt(data.inWindow.entered)} recent customers are still inside their {data.cohort.windowDays}-day window
+                  ({fmtInt(data.inWindow.subscribed)} subscribed so far) and are excluded from the rates above.
+                </span>
+              </div>
+            )}
+            {!!data.excludedFormerMembers && (
+              <div className="text-xs text-slate-500 pl-5">
+                {fmtInt(data.excludedFormerMembers)} customers were excluded because they already had a membership before their {data.labels.anchor}.
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
   );
 };
 
+export const SignupConversionFunnel: React.FC = () => <ConversionFunnel kind="signup-subscription" />;
+export const PaidWashConversionFunnel: React.FC = () => <ConversionFunnel kind="paid-wash-subscription" />;
+export const FreeWashConversionFunnel: React.FC = () => <ConversionFunnel kind="free-wash-subscription" />;
+
+/** Retention rate for a step, or null while nothing is judgeable yet. */
+const retentionRate = (s: FunnelRetention['steps'][number]) => (s.eligible > 0 ? pct(s.reached, s.eligible) : null);
+
+const RetentionKpi: React.FC<{ retention: FunnelRetention }> = ({ retention }) => {
+  const second = retention.steps[retention.steps.length - 1];
+  const rate = second ? retentionRate(second) : null;
+  return (
+    <Kpi icon={Repeat} label="Retained (2nd renewal)"
+      value={rate == null ? 'Pending' : fmtPct(rate)}
+      sub={rate == null
+        ? `${fmtInt(retention.members)} members since ${fmtRiyadhDate(retention.since)}${retention.nextJudgedAt ? ` · first result ${fmtRiyadhDate(retention.nextJudgedAt)}` : ''}`
+        : `${fmtInt(second.reached)} of ${fmtInt(second.eligible)} judged members · ${fmtInt(second.pending)} pending`}
+      tooltip="Members acquired by this funnel who joined on or after the retention start date and paid their 2nd renewal. A renewal is judged once it is due (30 days per cycle) plus a 10-day grace period for automatic card retries." />
+  );
+};
+
+const PENDING_STRIPES = 'repeating-linear-gradient(45deg, rgb(241 245 249) 0 6px, rgb(226 232 240) 6px 12px)';
+
+const RetentionRows: React.FC<{ retention: FunnelRetention }> = ({ retention }) => (
+  <div className="mt-5 pt-4 border-t border-dashed border-slate-200">
+    <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+      <h5 className="text-xs font-semibold text-slate-800">
+        Retention · members who joined from {fmtRiyadhDate(retention.since)}
+      </h5>
+      <span className="text-[11px] text-slate-400">
+        {fmtInt(retention.members)} members · bar = share of judged members
+        {retention.nextJudgedAt && <> · next result {fmtRiyadhDate(retention.nextJudgedAt)}</>}
+      </span>
+    </div>
+    <div className="space-y-3">
+      {retention.steps.map((s, i) => {
+        const rate = retentionRate(s);
+        return (
+          <div key={s.id} className="grid grid-cols-12 items-center gap-3"
+            title={`${s.label}: ${fmtInt(s.reached)} of ${fmtInt(s.eligible)} judged · ${fmtInt(s.pending)} pending`}>
+            <div className="col-span-12 sm:col-span-3">
+              <div className="text-xs font-semibold text-slate-800">R{i + 1}. {s.label}</div>
+              <div className="text-[11px] text-slate-500 leading-tight">{s.description}</div>
+            </div>
+            <div className="col-span-8 sm:col-span-6">
+              <div className="h-7 bg-slate-100 rounded-md overflow-hidden" style={rate == null ? { background: PENDING_STRIPES } : undefined}>
+                {rate != null && <div className="h-full bg-emerald-600 rounded-r-[4px]" style={{ width: `${Math.max(rate, 0.5)}%` }} />}
+              </div>
+            </div>
+            <div className="col-span-4 sm:col-span-3 text-right">
+              <div className="text-sm font-bold font-display text-slate-900">{rate == null ? 'Pending' : fmtPct(rate)}</div>
+              <div className="text-[11px] text-slate-500">
+                {fmtInt(s.reached)} of {fmtInt(s.eligible)} judged{s.pending > 0 && <> · {fmtInt(s.pending)} pending</>}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
 const Kpi: React.FC<{ icon: React.FC<{ className?: string }>; label: string; value: string; sub: string; accent?: boolean; tooltip?: string }> = ({ icon: Icon, label, value, sub, accent, tooltip }) => (
   <div className={`glass-card rounded-xl p-4 ${accent ? 'border border-emerald-200' : ''}`}>
     <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase text-slate-500">
-      <Icon className="w-3.5 h-3.5" />
+      <Icon className="w-3.5 h-3.5 shrink-0" />
       <span>{label}</span>
       {tooltip && <InfoTooltip text={tooltip} />}
     </div>
@@ -248,11 +357,11 @@ const Kpi: React.FC<{ icon: React.FC<{ className?: string }>; label: string; val
 
 const STRIPES = 'repeating-linear-gradient(45deg, rgb(5 150 105) 0 3px, rgb(167 243 208) 3px 6px)';
 
-const MonthlyBars: React.FC<{ rows: SignupFunnelData['monthly'] }> = ({ rows }) => {
+const MonthlyBars: React.FC<{ rows: ConversionFunnelData['monthly'] }> = ({ rows }) => {
   const shown = rows.filter(r => r.mature > 0 || r.pending > 0);
   const values = shown.map(r => pct(r.subscribed, r.mature));
   const max = Math.max(5, ...values);
-  if (!shown.length) return <div className="text-xs text-slate-400">No signups in range.</div>;
+  if (!shown.length) return <div className="text-xs text-slate-400">No customers in range.</div>;
   return (
     <div>
       <div className="flex items-end gap-[2px] h-40 border-b border-slate-200">
@@ -286,9 +395,9 @@ const MonthlyBars: React.FC<{ rows: SignupFunnelData['monthly'] }> = ({ rows }) 
   );
 };
 
-const LagBars: React.FC<{ buckets: SignupFunnelData['timeToConvert']['buckets']; total: number; windowDays: number }> = ({ buckets, total, windowDays }) => {
+const LagBars: React.FC<{ buckets: ConversionFunnelData['timeToConvert']['buckets']; total: number; windowDays: number; anchor: string }> = ({ buckets, total, windowDays, anchor }) => {
   const rows = [
-    { label: 'Signup day', n: buckets.sameDay },
+    { label: `Same day`, n: buckets.sameDay, title: `Subscribed within 24 h of ${anchor}` },
     { label: '1–7 days', n: buckets.d1to7 },
     { label: '8–30 days', n: buckets.d8to30, hide: windowDays <= 7 },
     { label: '31+ days', n: buckets.d31plus, hide: windowDays <= 30 },
@@ -298,7 +407,7 @@ const LagBars: React.FC<{ buckets: SignupFunnelData['timeToConvert']['buckets'];
       {rows.map(r => {
         const share = pct(r.n, total);
         return (
-          <div key={r.label} className="grid grid-cols-12 items-center gap-2" title={`${r.label}: ${fmtInt(r.n)} (${fmtPct(share)})`}>
+          <div key={r.label} className="grid grid-cols-12 items-center gap-2" title={`${r.title ?? r.label}: ${fmtInt(r.n)} (${fmtPct(share)})`}>
             <div className="col-span-3 text-xs text-slate-600">{r.label}</div>
             <div className="col-span-6 h-5 bg-slate-100 rounded overflow-hidden">
               <div className="h-full bg-emerald-600 rounded-r-[4px]" style={{ width: `${share}%` }} />
@@ -311,8 +420,9 @@ const LagBars: React.FC<{ buckets: SignupFunnelData['timeToConvert']['buckets'];
   );
 };
 
-const SegmentTable: React.FC<{ title: string; rows: FunnelSegmentRow[] }> = ({ title, rows }) => {
-  const best = Math.max(0, ...rows.map(r => pct(r.subscribed, r.signedUp)));
+const SegmentTable: React.FC<{ title: string; rows: FunnelSegmentRow[]; steps: string[] }> = ({ title, rows, steps }) => {
+  const last = steps.length - 1;
+  const best = Math.max(0, ...rows.map(r => pct(r.counts[last], r.counts[0])));
   return (
     <div className="glass-card rounded-xl p-5 overflow-x-auto">
       <h4 className="font-display font-bold text-sm text-slate-900 mb-3">{title}</h4>
@@ -320,21 +430,19 @@ const SegmentTable: React.FC<{ title: string; rows: FunnelSegmentRow[] }> = ({ t
         <thead>
           <tr className="text-[10px] uppercase text-slate-400 text-right">
             <th className="text-left font-semibold pb-2">Segment</th>
-            <th className="font-semibold pb-2">Signups</th>
-            <th className="font-semibold pb-2">Came back</th>
-            <th className="font-semibold pb-2">Repeat</th>
-            <th className="font-semibold pb-2 w-32">Subscribed</th>
+            <th className="font-semibold pb-2">Customers</th>
+            {steps.slice(1, last).map(s => <th key={s} className="font-semibold pb-2">{s}</th>)}
+            <th className="font-semibold pb-2 w-32">{steps[last]}</th>
           </tr>
         </thead>
         <tbody>
           {rows.map(r => {
-            const conv = pct(r.subscribed, r.signedUp);
+            const conv = pct(r.counts[last], r.counts[0]);
             return (
               <tr key={r.key} className="border-t border-slate-100 text-right">
                 <td className="text-left py-2 pr-2 text-slate-700 font-medium">{r.label}</td>
-                <td className="py-2 text-slate-600">{fmtInt(r.signedUp)}</td>
-                <td className="py-2 text-slate-600">{fmtPct(pct(r.visited, r.signedUp))}</td>
-                <td className="py-2 text-slate-600">{fmtPct(pct(r.repeat, r.signedUp))}</td>
+                <td className="py-2 text-slate-600">{fmtInt(r.counts[0])}</td>
+                {r.counts.slice(1, last).map((n, i) => <td key={i} className="py-2 text-slate-600">{fmtPct(pct(n, r.counts[0]))}</td>)}
                 <td className="py-2">
                   <div className="flex items-center justify-end gap-2">
                     <div className="w-14 h-1.5 bg-slate-100 rounded-full overflow-hidden">
